@@ -11,7 +11,8 @@ st.set_page_config(
 
 # 2. Conexão com o Supabase
 SUPABASE_URL = "https://jwstginzuimrbvvavrlv.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp3c3RnaW56dWltcmJ2dmF2cmx2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA2MjIwNDgsImV4cCI6MjEwNjE5ODA0OH0.XNLaxpWCElIntlXWS6_moHHCnzkTXUXBhcFoRx6K93M"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp3c3RnaW56dWltcmJ2dmF2cmx2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA2MjIwNDgsImV4cCI6MjEwNjE5ODA0OH0.XNLaxpWCElIntlXWS6_moHHCnzkTXUXBhcFoRx6K93M"  # <--- COLE A SUA CHAVE AQUI SE NÃO ESTIVER
+
 @st.cache_resource
 def get_supabase() -> Client:
     return create_client(SUPABASE_URL, SUPABASE_KEY)
@@ -35,7 +36,7 @@ if not st.session_state["logged_in"]:
     st.markdown("<p style='text-align: center; color: #6B7280;'>Congregação Jardim América</p>", unsafe_allow_html=True)
     st.divider()
 
-    col1, col2, col3 = st.columns([1, 2, 1])
+    col1, col2, col3 = st.columns()
     with col2:
         tab_login, tab_cadastro = st.tabs(["🔑 Entrar na Conta", "📝 Criar Nova Conta"])
 
@@ -74,10 +75,11 @@ if not st.session_state["logged_in"]:
             st.caption("O seu registo precisará de ser aprovado pelo Administrador antes de aceder.")
             nome_cad = st.text_input("Nome Completo:")
             email_cad = st.text_input("E-mail:").strip().lower()
+            tel_cad = st.text_input("WhatsApp (com DDD, ex: 11999998888):").strip()
             senha_cad = st.text_input("Crie uma Palavra-passe:", type="password")
 
             if st.button("Enviar Pedido de Registo", use_container_width=True):
-                if nome_cad and email_cad and senha_cad:
+                if nome_cad and email_cad and senha_cad and tel_cad:
                     try:
                         # Verificar se e-mail já existe
                         check = supabase.table("usuarios").select("id").eq("email", email_cad).execute()
@@ -87,6 +89,7 @@ if not st.session_state["logged_in"]:
                             supabase.table("usuarios").insert({
                                 "nome": nome_cad,
                                 "email": email_cad,
+                                "telefone": tel_cad,
                                 "senha": senha_cad,
                                 "status": "pendente",
                                 "perfil": "irmao"
@@ -95,7 +98,7 @@ if not st.session_state["logged_in"]:
                     except Exception as err:
                         st.error(f"Erro ao realizar registo: {err}")
                 else:
-                    st.warning("Por favor, preencha todos os campos.")
+                    st.warning("Por favor, preencha todos os campos (incluindo o WhatsApp).")
 
 # --- ÁREA INTERNA DO SITE LOGADO ---
 else:
@@ -198,7 +201,8 @@ else:
             if pendentes.data:
                 st.sidebar.warning(f"📩 {len(pendentes.data)} pedido(s) de acesso pendente(s)!")
                 for u in pendentes.data:
-                    st.sidebar.write(f"👤 **{u['nome']}**\n📧 {u['email']}")
+                    tel_exib = u.get('telefone') or 'Não informado'
+                    st.sidebar.write(f"👤 **{u['nome']}**\n📧 {u['email']}\n📱 {tel_exib}")
                     col_ap, col_rec = st.sidebar.columns(2)
                     if col_ap.button("✅ Aprovar", key=f"ap_{u['id']}", use_container_width=True):
                         supabase.table("usuarios").update({"status": "aprovado"}).eq("id", u["id"]).execute()
