@@ -11,7 +11,7 @@ st.set_page_config(
 
 # 2. Conexão com o Supabase
 SUPABASE_URL = "https://jwstginzuimrbvvavrlv.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp3c3RnaW56dWltcmJ2dmF2cmx2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA2MjIwNDgsImV4cCI6MjEwNjE5ODA0OH0.XNLaxpWCElIntlXWS6_moHHCnzkTXUXBhcFoRx6K93M"  # <--- COLE A SUA CHAVE AQUI SE NÃO ESTIVER
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp3c3RnaW56dWltcmJ2dmF2cmx2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA2MjIwNDgsImV4cCI6MjEwNjE5ODA0OH0.XNLaxpWCElIntlXWS6_moHHCnzkTXUXBhcFoRx6K93M"  # <--- COLE A SUA CHAVE AQUI
 
 @st.cache_resource
 def get_supabase() -> Client:
@@ -36,7 +36,7 @@ if not st.session_state["logged_in"]:
     st.markdown("<p style='text-align: center; color: #6B7280;'>Congregação Jardim América</p>", unsafe_allow_html=True)
     st.divider()
 
-    col1, col2, col3 = st.columns()
+    col1, col2, col3 = st.columns(3)
     with col2:
         tab_login, tab_cadastro = st.tabs(["🔑 Entrar na Conta", "📝 Criar Nova Conta"])
 
@@ -75,13 +75,12 @@ if not st.session_state["logged_in"]:
             st.caption("O seu registo precisará de ser aprovado pelo Administrador antes de aceder.")
             nome_cad = st.text_input("Nome Completo:")
             email_cad = st.text_input("E-mail:").strip().lower()
-            tel_cad = st.text_input("WhatsApp (com DDD, ex: 11999998888):").strip()
+            tel_cad = st.text_input("WhatsApp (com DDD, ex: 5519983035946):").strip()
             senha_cad = st.text_input("Crie uma Palavra-passe:", type="password")
 
             if st.button("Enviar Pedido de Registo", use_container_width=True):
                 if nome_cad and email_cad and senha_cad and tel_cad:
                     try:
-                        # Verificar se e-mail já existe
                         check = supabase.table("usuarios").select("id").eq("email", email_cad).execute()
                         if check.data:
                             st.error("Este e-mail já está registado no sistema.")
@@ -161,7 +160,7 @@ else:
     # TAB 2: FILTRO POR NOME
     with tab2:
         st.subheader("🔍 Minhas Designações")
-        busca = st.text_input("Digite o seu nome para consultar:", value=st.session_state["user_name"].split()[0] if st.session_state["user_name"] else "")
+        busca = st.text_input("Digite o seu nome para consultar:", value=st.session_state["user_name"])
         if busca:
             encontrado = False
             for sem in semanas:
