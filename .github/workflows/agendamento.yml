@@ -1,0 +1,28 @@
+name: Enviar Avisos WhatsApp
+
+on:
+  schedule:
+    # Executa automaticamente todas as Sábados e Quarta-feiras às 09:00 (Horário de Brasília)
+    - cron: '0 12 * * 3,6'
+  workflow_dispatch: # Permite disparar manualmente pelo botão no GitHub se quiser testar
+
+jobs:
+  executar-bot:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Baixar código do repositório
+        uses: actions/checkout@v3
+
+      - name: Configurar Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Instalar bibliotecas
+        run: |
+          python -m pip install --upgrade pip
+          pip install supabase
+
+      - name: Executar Bot do WhatsApp
+        run: python bot_whatsapp.py
