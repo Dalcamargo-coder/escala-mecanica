@@ -2,28 +2,53 @@ import streamlit as st
 import os
 from supabase import create_client, Client
 
-# 1. Configuração da Página
+
+# ============================================================
+# CONFIGURAÇÃO DA PÁGINA
+# ============================================================
+
 st.set_page_config(
     page_title="Designações Mecânicas — Congregação Jardim América",
     page_icon="🏛️",
     layout="wide"
 )
 
-# 2. Conexão com o Supabase
+
+# ============================================================
+# CONEXÃO COM SUPABASE
+# ============================================================
+
 SUPABASE_URL = "https://jwstginzuimrbvvavrlv.supabase.co"
+
+# IMPORTANTE:
+# Coloque aqui a sua chave ANON do Supabase.
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp3c3RnaW56dWltcmJ2dmF2cmx2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA2MjIwNDgsImV4cCI6MjEwNjE5ODA0OH0.XNLaxpWCElIntlXWS6_moHHCnzkTXUXBhcFoRx6K93M"
+
 
 @st.cache_resource
 def get_supabase() -> Client:
-    return create_client(SUPABASE_URL, SUPABASE_KEY)
+    return create_client(
+        SUPABASE_URL,
+        SUPABASE_KEY
+    )
+
 
 try:
     supabase = get_supabase()
+
 except Exception as e:
-    st.error(f"Erro ao ligar ao banco de dados Supabase: {e}")
+
+    st.error(
+        f"Erro ao ligar ao banco de dados Supabase: {e}"
+    )
+
     st.stop()
 
-# 3. Estado da Sessão
+
+# ============================================================
+# ESTADO DA SESSÃO
+# ============================================================
+
 if "logged_in" not in st.session_state:
     st.session_state["logged_in"] = False
 
@@ -35,18 +60,22 @@ if "user_role" not in st.session_state:
 
 
 # ============================================================
-# TELA DE LOGIN / REGISTO
+# TELA DE LOGIN
 # ============================================================
 
 if not st.session_state["logged_in"]:
 
     st.markdown(
-        "<h1 style='text-align: center;'>🏛️ Portal de Designações Mecânicas</h1>",
+        "<h1 style='text-align:center;'>"
+        "🏛️ Portal de Designações Mecânicas"
+        "</h1>",
         unsafe_allow_html=True
     )
 
     st.markdown(
-        "<p style='text-align: center; color: #6B7280;'>Congregação Jardim América</p>",
+        "<p style='text-align:center;color:#6B7280;'>"
+        "Congregação Jardim América"
+        "</p>",
         unsafe_allow_html=True
     )
 
@@ -57,12 +86,15 @@ if not st.session_state["logged_in"]:
     with col2:
 
         tab_login, tab_cadastro = st.tabs(
-            ["🔑 Entrar na Conta", "📝 Criar Nova Conta"]
+            [
+                "🔑 Entrar na Conta",
+                "📝 Criar Nova Conta"
+            ]
         )
 
-        # ----------------------------------------------------
+        # ====================================================
         # LOGIN
-        # ----------------------------------------------------
+        # ====================================================
 
         with tab_login:
 
@@ -85,7 +117,13 @@ if not st.session_state["logged_in"]:
                 use_container_width=True
             ):
 
-                if email_login and senha_login:
+                if not email_login or not senha_login:
+
+                    st.warning(
+                        "Preencha o e-mail e a palavra-passe."
+                    )
+
+                else:
 
                     try:
 
@@ -105,8 +143,14 @@ if not st.session_state["logged_in"]:
                             if user.get("status") == "aprovado":
 
                                 st.session_state["logged_in"] = True
-                                st.session_state["user_name"] = user["nome"]
-                                st.session_state["user_role"] = user["perfil"]
+
+                                st.session_state["user_name"] = (
+                                    user["nome"]
+                                )
+
+                                st.session_state["user_role"] = (
+                                    user["perfil"]
+                                )
 
                                 st.success(
                                     f"Bem-vindo, {user['nome']}!"
@@ -117,14 +161,15 @@ if not st.session_state["logged_in"]:
                             elif user.get("status") == "pendente":
 
                                 st.warning(
-                                    "⏳ O seu registo ainda está pendente "
-                                    "de autorização pelo Administrador."
+                                    "⏳ O seu registo ainda está "
+                                    "pendente de autorização."
                                 )
 
                             else:
 
                                 st.error(
-                                    "❌ O seu pedido de acesso não foi aprovado."
+                                    "❌ O seu pedido de acesso "
+                                    "não foi aprovado."
                                 )
 
                         else:
@@ -139,15 +184,10 @@ if not st.session_state["logged_in"]:
                             f"Erro ao verificar conta: {err}"
                         )
 
-                else:
 
-                    st.warning(
-                        "Preencha o e-mail e a palavra-passe."
-                    )
-
-        # ----------------------------------------------------
+        # ====================================================
         # CADASTRO
-        # ----------------------------------------------------
+        # ====================================================
 
         with tab_cadastro:
 
@@ -162,7 +202,7 @@ if not st.session_state["logged_in"]:
             ).strip().lower()
 
             tel_cad = st.text_input(
-                "WhatsApp (ex: 5519983035946):"
+                "WhatsApp:"
             ).strip()
 
             senha_cad = st.text_input(
@@ -175,7 +215,13 @@ if not st.session_state["logged_in"]:
                 use_container_width=True
             ):
 
-                if nome_cad and email_cad and senha_cad and tel_cad:
+                if not nome_cad or not email_cad or not senha_cad or not tel_cad:
+
+                    st.warning(
+                        "Preencha todos os campos."
+                    )
+
+                else:
 
                     try:
 
@@ -190,7 +236,7 @@ if not st.session_state["logged_in"]:
                         if check.data:
 
                             st.error(
-                                "Este e-mail já está registado no sistema."
+                                "Este e-mail já está registado."
                             )
 
                         else:
@@ -210,7 +256,7 @@ if not st.session_state["logged_in"]:
                             )
 
                             st.success(
-                                "✅ Registo enviado com sucesso! "
+                                "✅ Registo enviado! "
                                 "Aguarde a aprovação."
                             )
 
@@ -220,20 +266,20 @@ if not st.session_state["logged_in"]:
                             f"Erro ao realizar registo: {err}"
                         )
 
-                else:
-
-                    st.warning(
-                        "Preencha todos os campos."
-                    )
-
 
 # ============================================================
-# ÁREA INTERNA LOGADA
+# ÁREA INTERNA
 # ============================================================
 
 else:
 
-    st.sidebar.title("🏛️ Jardim América")
+    # ========================================================
+    # BARRA LATERAL
+    # ========================================================
+
+    st.sidebar.title(
+        "🏛️ Jardim América"
+    )
 
     st.sidebar.write(
         f"👤 **{st.session_state['user_name']}**"
@@ -242,10 +288,6 @@ else:
     st.sidebar.caption(
         f"Perfil: **{st.session_state['user_role'].upper()}**"
     )
-
-    # --------------------------------------------------------
-    # TERMINAR SESSÃO
-    # --------------------------------------------------------
 
     if st.sidebar.button(
         "🚪 Terminar Sessão",
@@ -257,6 +299,7 @@ else:
         st.session_state["user_role"] = None
 
         st.rerun()
+
 
     # ========================================================
     # BUSCAR MESES
@@ -271,20 +314,21 @@ else:
             .execute()
         )
 
-        meses_disponiveis = (
-            sorted(
+        if res_meses.data:
+
+            meses_disponiveis = sorted(
                 list(
                     set(
-                        [
-                            m["mes"]
-                            for m in res_meses.data
-                        ]
+                        str(item["mes"]).strip()
+                        for item in res_meses.data
+                        if item.get("mes")
                     )
                 )
             )
-            if res_meses.data
-            else ["2026-10"]
-        )
+
+        else:
+
+            meses_disponiveis = []
 
     except Exception as err:
 
@@ -292,7 +336,10 @@ else:
             f"Erro ao buscar meses: {err}"
         )
 
-        meses_disponiveis = ["2026-10"]
+        meses_disponiveis = []
+
+
+    # Garantir outubro de 2026
 
     if "2026-10" not in meses_disponiveis:
 
@@ -301,60 +348,53 @@ else:
             "2026-10"
         )
 
+
+    # ========================================================
+    # SELECIONAR MÊS
+    # ========================================================
+
     mes_selecionado = st.sidebar.selectbox(
-    "📅 Selecionar Mês:",
-    meses_disponiveis,
-    index=0
-)
-
-st.sidebar.markdown("---")
-st.sidebar.write("🔎 TESTE DO BANCO")
-
-try:
-    teste = supabase.table("escalas").select("id, mes").limit(5).execute()
-
-    st.sidebar.write(
-        f"Registros encontrados: {len(teste.data)}"
+        "📅 Selecionar Mês:",
+        meses_disponiveis,
+        index=0
     )
 
-    st.sidebar.write(
-        teste.data
-    )
 
-except Exception as err:
-    st.sidebar.error(
-        f"ERRO NO TESTE: {err}"
-    )
+    # ========================================================
+    # BUSCAR ESCALAS
+    # ========================================================
 
-# ========================================================
-# BUSCAR DADOS DA ESCALA
-# ========================================================
+    try:
 
-try:
+        mes_consulta = str(
+            mes_selecionado
+        ).strip()
 
-    mes_consulta = str(mes_selecionado).strip()
+        res_escala = (
+            supabase
+            .table("escalas")
+            .select("*")
+            .eq("mes", mes_consulta)
+            .execute()
+        )
 
-    res_escala = (
-        supabase
-        .table("escalas")
-        .select("*")
-        .eq("mes", mes_consulta)
-        .execute()
-    )
+        dados_escala = (
+            res_escala.data
+            or []
+        )
 
-    dados_escala = res_escala.data or []
+        st.sidebar.success(
+            f"✅ {len(dados_escala)} "
+            f"registros encontrados"
+        )
 
-    st.sidebar.success(
-        f"✅ {len(dados_escala)} escalas encontradas"
-    )
+    except Exception as err:
 
-except Exception as err:
+        dados_escala = []
 
-    dados_escala = []
-
-    st.error(
-        f"❌ Erro ao buscar escalas no Supabase: {err}"
-    )
+        st.sidebar.error(
+            f"Erro ao buscar escalas: {err}"
+        )
 
 
     # ========================================================
@@ -365,54 +405,71 @@ except Exception as err:
 
     for item in dados_escala:
 
-        dt = item["data_texto"]
+        dt = item.get(
+            "data_texto",
+            "Data não informada"
+        )
 
         if dt not in datas_dict:
 
             datas_dict[dt] = []
 
         datas_dict[dt].append({
-            "funcao": item["funcao"],
-            "irmao": item["irmao"]
+            "funcao": item.get(
+                "funcao",
+                ""
+            ),
+            "irmao": item.get(
+                "irmao",
+                ""
+            )
         })
 
+
     # ========================================================
-    # CRIAR ABAS
+    # ABAS
     # ========================================================
 
     if st.session_state["user_role"] == "admin":
 
-        tab1, tab2, tab3, tab4 = st.tabs([
-            "📅 Escala do Mês",
-            "🔍 Procurar por Irmão",
-            "📄 Imprimir PDF",
-            "⚙️ Gerir Escalas"
-        ])
+        tab1, tab2, tab3, tab4 = st.tabs(
+            [
+                "📅 Escala do Mês",
+                "🔍 Procurar por Irmão",
+                "📄 Imprimir PDF",
+                "⚙️ Gerir Escalas"
+            ]
+        )
 
     else:
 
-        tab1, tab2, tab3 = st.tabs([
-            "📅 Escala do Mês",
-            "🔍 Procurar por Irmão",
-            "📄 Imprimir PDF"
-        ])
+        tab1, tab2, tab3 = st.tabs(
+            [
+                "📅 Escala do Mês",
+                "🔍 Procurar por Irmão",
+                "📄 Imprimir PDF"
+            ]
+        )
 
         tab4 = None
 
+
     # ========================================================
-    # ABA 1 - ESCALA DO MÊS
+    # ABA 1 — ESCALA
     # ========================================================
 
     with tab1:
 
         st.subheader(
-            f"📋 Designações Mecânicas — {mes_selecionado}"
+            f"📋 Designações Mecânicas — "
+            f"{mes_selecionado}"
         )
 
         if not datas_dict:
 
             st.info(
-                "Nenhuma escala registada no banco de dados para este mês."
+                "Nenhuma escala registada "
+                "no banco de dados para este mês."
             )
 
         else:
@@ -429,6 +486,10 @@ except Exception as err:
 
                 c1, c2 = st.columns(2)
 
+                # --------------------------------------------
+                # PRIMEIRA DATA
+                # --------------------------------------------
+
                 dt1 = lista_datas[i]
 
                 with c1:
@@ -443,6 +504,11 @@ except Exception as err:
                             f"**{item['funcao']}:** "
                             f"{item['irmao']}"
                         )
+
+
+                # --------------------------------------------
+                # SEGUNDA DATA
+                # --------------------------------------------
 
                 if i + 1 < len(lista_datas):
 
@@ -463,8 +529,9 @@ except Exception as err:
 
                 st.divider()
 
+
     # ========================================================
-    # ABA 2 - PROCURAR POR IRMÃO
+    # ABA 2 — PROCURAR IRMÃO
     # ========================================================
 
     with tab2:
@@ -486,7 +553,9 @@ except Exception as err:
 
                 for item in itens:
 
-                    if busca.lower() in item["irmao"].lower():
+                    if busca.lower() in item[
+                        "irmao"
+                    ].lower():
 
                         st.success(
                             f"📅 **{dt}** — "
@@ -499,11 +568,13 @@ except Exception as err:
             if not encontrado:
 
                 st.warning(
-                    "Nenhuma designação localizada para este nome."
+                    "Nenhuma designação localizada "
+                    "para este nome."
                 )
 
+
     # ========================================================
-    # ABA 3 - PDF
+    # ABA 3 — PDF
     # ========================================================
 
     with tab3:
@@ -518,10 +589,16 @@ except Exception as err:
 
         if os.path.exists(pdf_path):
 
-            with open(pdf_path, "rb") as f:
+            with open(
+                pdf_path,
+                "rb"
+            ) as f:
 
                 st.download_button(
-                    label="🖨️ Descarregar / Imprimir PDF Oficial",
+                    label=(
+                        "🖨️ Descarregar / "
+                        "Imprimir PDF Oficial"
+                    ),
                     data=f.read(),
                     file_name=pdf_path,
                     mime="application/pdf",
@@ -532,11 +609,13 @@ except Exception as err:
         else:
 
             st.info(
-                "O PDF oficial não foi encontrado no projeto."
+                "O PDF oficial não foi encontrado "
+                "no projeto."
             )
 
+
     # ========================================================
-    # ABA 4 - ADMINISTRAR ESCALAS
+    # ABA 4 — ADMINISTRAR ESCALAS
     # ========================================================
 
     if tab4 is not None:
@@ -590,11 +669,13 @@ except Exception as err:
                         else "Sábado"
                 )
 
-                if st.form_submit_button(
+                enviar = st.form_submit_button(
                     "➕ Adicionar à Escala",
                     type="primary",
                     use_container_width=True
-                ):
+                )
+
+                if enviar:
 
                     if (
                         mes_input
@@ -608,11 +689,11 @@ except Exception as err:
                                 supabase
                                 .table("escalas")
                                 .insert({
-                                    "mes": mes_input,
-                                    "data_texto": data_texto_input,
+                                    "mes": mes_input.strip(),
+                                    "data_texto": data_texto_input.strip(),
                                     "dia_semana": dia_sem_input,
                                     "funcao": funcao_input,
-                                    "irmao": irmao_input
+                                    "irmao": irmao_input.strip()
                                 })
                                 .execute()
                             )
@@ -628,6 +709,13 @@ except Exception as err:
                             st.error(
                                 f"Erro: {err}"
                             )
+
+                    else:
+
+                        st.warning(
+                            "Preencha todos os campos."
+                        )
+
 
     # ========================================================
     # PAINEL DO ADMIN
@@ -660,7 +748,9 @@ except Exception as err:
                         f"({u.get('telefone', 'Sem tel')})"
                     )
 
-                    c_ap, c_rec = st.sidebar.columns(2)
+                    c_ap, c_rec = (
+                        st.sidebar.columns(2)
+                    )
 
                     if c_ap.button(
                         "✅",
@@ -679,6 +769,7 @@ except Exception as err:
 
                         st.rerun()
 
+
                     if c_rec.button(
                         "❌",
                         key=f"rec_{u['id']}"
@@ -696,8 +787,15 @@ except Exception as err:
 
                         st.rerun()
 
+            else:
+
+                st.sidebar.caption(
+                    "Nenhum utilizador pendente."
+                )
+
         except Exception as err:
 
             st.sidebar.error(
                 f"Erro ao carregar utilizadores: {err}"
             )
+
