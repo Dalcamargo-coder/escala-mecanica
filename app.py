@@ -302,10 +302,34 @@ else:
         )
 
     mes_selecionado = st.sidebar.selectbox(
-        "📅 Selecionar Mês:",
-        meses_disponiveis,
-        index=0
+    "📅 Selecionar Mês:",
+    meses_disponiveis,
+    index=0
+)
+
+st.sidebar.markdown("---")
+st.sidebar.write("🔎 TESTE DO BANCO")
+
+try:
+    teste = supabase.table("escalas").select("id, mes").limit(5).execute()
+
+    st.sidebar.write(
+        f"Registros encontrados: {len(teste.data)}"
     )
+
+    st.sidebar.write(
+        teste.data
+    )
+
+except Exception as err:
+    st.sidebar.error(
+        f"ERRO NO TESTE: {err}"
+    )
+
+# ========================================================
+# BUSCAR DADOS DA ESCALA
+# ========================================================
+
 
     # ========================================================
     # BUSCAR DADOS DA ESCALA
