@@ -121,15 +121,17 @@ else:
     mes_selecionado = st.sidebar.selectbox("📅 Selecionar Mês:", meses_disponiveis, index=0)
 
     # Buscar dados da escala
+        # Buscar dados da escala
     try:
-    res_escala = supabase.table("escalas").select("*").eq("mes", mes_selecionado).execute()
-    dados_escala = res_escala.data if res_escala.data else []
+        res_escala = supabase.table("escalas").select("*").eq("mes", mes_selecionado).execute()
+        dados_escala = res_escala.data if res_escala.data else []
 
-    st.sidebar.success(f"✅ {len(dados_escala)} escalas encontradas")
+        st.sidebar.success(f"✅ {len(dados_escala)} escalas encontradas")
 
-except Exception as err:
-    dados_escala = []
-    st.error(f"❌ Erro ao buscar escalas no Supabase: {err}")
+    except Exception as err:
+        dados_escala = []
+        st.error(f"❌ Erro ao buscar escalas no Supabase: {err}")
+
 
     datas_dict = {}
     for item in dados_escala:
