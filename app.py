@@ -11,7 +11,7 @@ st.set_page_config(
 
 # 2. Conexão com o Supabase
 SUPABASE_URL = "https://jwstginzuimrbvvavrlv.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp3c3RnaW56dWltcmJ2dmF2cmx2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA2MjIwNDgsImV4cCI6MjEwNjE5ODA0OH0.XNLaxpWCElIntlXWS6_moHHCnzkTXUXBhcFoRx6K93M"  # <--- COLE A SUA CHAVE AQUI
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp3c3RnaW56dWltcmJ2dmF2cmx2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA2MjIwNDgsImV4cCI6MjEwNjE5ODA0OH0.XNLaxpWCElIntlXWS6_moHHCnzkTXUXBhcFoRx6K93M"  # <--- COLE A SUA CHAVE ANON AQUI
 
 @st.cache_resource
 def get_supabase() -> Client:
@@ -112,119 +112,81 @@ else:
         st.session_state["user_role"] = None
         st.rerun()
 
-    # Estrutura de Páginas do Portal (Sincronizada com o PDF Oficial de Outubro 2026)
-    semanas = [
-        {
-            "data_seg": "Segunda-feira — 05/10/2026",
-            "seg": {
-                "🗣️ Oração Inicial": "Lucas Valler",
-                "🗣️ Oração Final": "Adriano Carbinatto",
-                "🎤 Microfones": "Ricardo Maciel / Jamenson Lisboa",
-                "🚪 Ind. Entrada": "Adalberto Camargo",
-                "🏛️ Ind. Auditório": "Laércio Paulino"
-            },
-            "data_sab": "Sábado — 10/10/2026",
-            "sab": {
-                "🗣️ Oração Final": "Guerino Bastelli",
-                "📖 Leitor A Sentinela": "Jamenson Lisboa",
-                "🎤 Microfones": "Gabriel Carbinatto / Gabriel Pereira",
-                "🚪 Ind. Entrada": "Uilson Lisboa",
-                "🏛️ Ind. Auditório": "Jairo Damasceno"
-            }
-        },
-        {
-            "data_seg": "Segunda-feira — 12/10/2026",
-            "seg": {
-                "🗣️ Oração Inicial": "Laércio Paulino",
-                "🗣️ Oração Final": "Jorge Ramos",
-                "🎤 Microfones": "Ueldson Lisboa / Marcio Silva",
-                "🚪 Ind. Entrada": "Lucas Carbinatto",
-                "🏛️ Ind. Auditório": "Enio Gomes"
-            },
-            "data_sab": "Sábado — 17/10/2026",
-            "sab": {
-                "🗣️ Oração Final": "Uilson Lisboa",
-                "📖 Leitor A Sentinela": "Renê Mordente",
-                "🎤 Microfones": "Ricardo Maciel / Jamenson Lisboa",
-                "🚪 Ind. Entrada": "Jairo Damasceno",
-                "🏛️ Ind. Auditório": "Adalberto Camargo"
-            }
-        },
-        {
-            "data_seg": "Segunda-feira — 19/10/2026",
-            "seg": {
-                "🗣️ Oração Inicial": "Gesaías Vencato",
-                "🗣️ Oração Final": "Delaércio Carneiro",
-                "🎤 Microfones": "Gabriel Pereira / Marcio Silva",
-                "🚪 Ind. Entrada": "Marcelo Carrera",
-                "🏛️ Ind. Auditório": "Rogério Balista"
-            },
-            "data_sab": "Sábado — 24/10/2026",
-            "sab": {
-                "🗣️ Oração Final": "Adalberto Camargo",
-                "📖 Leitor A Sentinela": "Lucas Carbinatto",
-                "🎤 Microfones": "Ueldson Lisboa / Jairo Damasceno",
-                "🚪 Ind. Entrada": "Enio Gomes",
-                "🏛️ Ind. Auditório": "Marcel Silvério"
-            }
-        },
-        {
-            "data_seg": "Segunda-feira — 26/10/2026",
-            "seg": {
-                "🗣️ Oração Inicial": "Renê Mordente",
-                "🗣️ Oração Final": "Samuel Schnetes",
-                "🎤 Microfones": "Ricardo Maciel / Gabriel Pereira",
-                "🚪 Ind. Entrada": "Uilson Lisboa",
-                "🏛️ Ind. Auditório": "Jorge Ramos"
-            },
-            "data_sab": "Sábado — 31/10/2026",
-            "sab": {
-                "🗣️ Oração Final": "Lucas Carbinatto",
-                "📖 Leitor A Sentinela": "Lucas Valler",
-                "🎤 Microfones": "Marcio Silva / Jamenson Lisboa",
-                "🚪 Ind. Entrada": "Adalberto Camargo",
-                "🏛️ Ind. Auditório": "Adriano Carbinatto"
-            }
-        }
-    ]
+    # Buscar meses disponíveis no banco de dados Supabase
+    try:
+        res_meses = supabase.table("escalas").select("mes").execute()
+        meses_disponiveis = sorted(list(set([m["mes"] for m in res_meses.data]))) if res_meses.data else ["2026-10"]
+    except Exception:
+        meses_disponiveis = ["2026-10"]
 
-    tab1, tab2, tab3 = st.tabs(["📅 Escala do Mês", "🔍 Procurar por Irmão", "📄 Imprimir PDF"])
+    if "2026-10" not in meses_disponiveis:
+        meses_disponiveis.insert(0, "2026-10")
+
+    # Seleção do Mês
+    mes_selecionado = st.sidebar.selectbox("📅 Selecionar Mês da Escala:", meses_disponiveis, index=0)
+
+    # Buscar dados da escala do mês selecionado
+    try:
+        res_escala = supabase.table("escalas").select("*").eq("mes", mes_selecionado).execute()
+        dados_escala = res_escala.data if res_escala.data else []
+    except Exception as e:
+        dados_escala = []
+        st.error(f"Erro ao carregar escala do banco de dados: {e}")
+
+    # Organizar dados por datas
+    datas_dict = {}
+    for item in dados_escala:
+        dt = item["data_texto"]
+        if dt not in datas_dict:
+            datas_dict[dt] = []
+        datas_dict[dt].append({"funcao": item["funcao"], "irmao": item["irmao"], "dia_semana": item.get("dia_semana", "seg")})
+
+    # Abas principais
+    tabs_list = ["📅 Escala do Mês", "🔍 Procurar por Irmão", "📄 Imprimir PDF"]
+    if st.session_state["user_role"] == "admin":
+        tabs_list.append("⚙️ Gerir Escalas")
+
+    tabs = st.tabs(tabs_list)
 
     # TAB 1: ESCALA COMPLETA
-    with tab1:
-        st.subheader("📋 Designações Mecânicas — Outubro 2026")
-        for sem in semanas:
-            c1, c2 = st.columns(2)
-            with c1:
-                st.info(f"🔹 **{sem['data_seg']}**")
-                for k, v in sem["seg"].items():
-                    st.write(f"**{k}:** {v}")
-            with c2:
-                st.success(f"🟣 **{sem['data_sab']}**")
-                for k, v in sem["sab"].items():
-                    st.write(f"**{k}:** {v}")
-            st.divider()
+    with tabs[0]:
+        st.subheader(f"📋 Designações Mecânicas — Mês {mes_selecionado}")
+        if not datas_dict:
+            st.info("Nenhuma escala registada no banco de dados para este mês.")
+        else:
+            lista_datas = list(datas_dict.keys())
+            for i in range(0, len(lista_datas), 2):
+                c1, c2 = st.columns(2)
+                dt1 = lista_datas[i]
+                with c1:
+                    st.info(f"🔹 **{dt1}**")
+                    for item in datas_dict[dt1]:
+                        st.write(f"**{item['funcao']}:** {item['irmao']}")
+                
+                if i + 1 < len(lista_datas):
+                    dt2 = lista_datas[i+1]
+                    with c2:
+                        st.success(f"🟣 **{dt2}**")
+                        for item in datas_dict[dt2]:
+                            st.write(f"**{item['funcao']}:** {item['irmao']}")
+                st.divider()
 
     # TAB 2: FILTRO POR NOME
-    with tab2:
+    with tabs[1]:
         st.subheader("🔍 Minhas Designações")
         busca = st.text_input("Digite o seu nome para consultar:", value=st.session_state["user_name"])
         if busca:
             encontrado = False
-            for sem in semanas:
-                for func, irmao in sem["seg"].items():
-                    if busca.lower() in irmao.lower():
-                        st.info(f"📅 **{sem['data_seg']}** — **{func}:** {irmao}")
-                        encontrado = True
-                for func, irmao in sem["sab"].items():
-                    if busca.lower() in irmao.lower():
-                        st.success(f"📅 **{sem['data_sab']}** — **{func}:** {irmao}")
+            for dt, itens in datas_dict.items():
+                for item in itens:
+                    if busca.lower() in item["irmao"].lower():
+                        st.success(f"📅 **{dt}** — **{item['funcao']}:** {item['irmao']}")
                         encontrado = True
             if not encontrado:
-                st.warning("Nenhuma designação localizada para este nome.")
+                st.warning("Nenhuma designação localizada para este nome no mês selecionado.")
 
     # TAB 3: DOWNLOAD PDF
-    with tab3:
+    with tabs[2]:
         st.subheader("📄 Documento Oficial para Impressão (Folha A4)")
         pdf_path = "Designações_Mecânicas_-_Outubro_2026.pdf"
         if os.path.exists(pdf_path):
@@ -237,16 +199,56 @@ else:
                     use_container_width=True,
                     type="primary"
                 )
+        else:
+            st.warning("Ficheiro PDF não encontrado no servidor.")
 
-    # PAINEL DE GESTÃO DO ADMINISTRADOR
+    # TAB 4: GESTÃO DE ESCALAS (Apenas Administrador)
+    if st.session_state["user_role"] == "admin":
+        with tabs[3]:
+            st.subheader("⚙️ Cadastrar Nova Designação na Escala")
+            with st.form("form_nova_designacao"):
+                c_mes, c_dia = st.columns(2)
+                mes_input = c_mes.text_input("Mês (Ano-Mês):", value="2026-11", help="Exemplo: 2026-11 para Novembro")
+                data_texto_input = c_dia.text_input("Data Formatada:", value="Segunda-feira — 02/11/2026")
+                
+                c_func, c_irm = st.columns(2)
+                funcao_input = c_func.selectbox("Função:", [
+                    "🗣️ Oração Inicial", 
+                    "🗣️ Oração Final", 
+                    "📖 Leitor A Sentinela", 
+                    "🎤 Microfones", 
+                    "🚪 Ind. Entrada", 
+                    "🏛️ Ind. Auditório"
+                ])
+                irmao_input = c_irm.text_input("Nome do Irmão:")
+                dia_sem_input = st.selectbox("Tipo de Reunião:", ["seg", "sab"], format_func=lambda x: "Meio de Semana (Segunda)" if x == "seg" else "Fim de Semana (Sábado)")
+                
+                if st.form_submit_button("➕ Adicionar à Escala", type="primary", use_container_width=True):
+                    if mes_input and data_texto_input and irmao_input:
+                        try:
+                            supabase.table("escalas").insert({
+                                "mes": mes_input,
+                                "data_texto": data_texto_input,
+                                "dia_semana": dia_sem_input,
+                                "funcao": funcao_input,
+                                "irmao": irmao_input
+                            }).execute()
+                            st.success("✅ Designação adicionada com sucesso no Supabase!")
+                            st.rerun()
+                        except Exception as err:
+                            st.error(f"Erro ao guardar designação: {err}")
+                    else:
+                        st.warning("Preencha todos os campos antes de guardar.")
+
+    # PAINEL DE GESTÃO DO ADMINISTRADOR (Barra Lateral)
     if st.session_state["user_role"] == "admin":
         st.sidebar.markdown("---")
-        st.sidebar.subheader("⚙️ Gestão de Utilizadores")
+        st.sidebar.subheader("⚙️ Aprovar Utilizadores")
         
         try:
             pendentes = supabase.table("usuarios").select("*").eq("status", "pendente").execute()
             if pendentes.data:
-                st.sidebar.warning(f"📩 {len(pendentes.data)} pedido(s) de acesso pendente(s)!")
+                st.sidebar.warning(f"📩 {len(pendentes.data)} pedido(s) pendente(s)!")
                 for u in pendentes.data:
                     tel_exib = u.get('telefone') or 'Não informado'
                     st.sidebar.write(f"👤 **{u['nome']}**\n📧 {u['email']}\n📱 {tel_exib}")
