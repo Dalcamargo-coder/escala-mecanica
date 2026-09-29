@@ -20,7 +20,7 @@ st.set_page_config(
 
 SUPABASE_URL = "https://jwstginzuimrbvvavrlv.supabase.co"
 
-# COLE A SUA CHAVE ANON DO SUPABASE AQUI
+# COLOQUE A SUA CHAVE ANON DO SUPABASE AQUI
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp3c3RnaW56dWltcmJ2dmF2cmx2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA2MjIwNDgsImV4cCI6MjEwNjE5ODA0OH0.XNLaxpWCElIntlXWS6_moHHCnzkTXUXBhcFoRx6K93M"
 
 
@@ -59,7 +59,7 @@ if "user_role" not in st.session_state:
 
 
 # ============================================================
-# TELA DE LOGIN
+# TELA DE LOGIN / CADASTRO
 # ============================================================
 
 if not st.session_state["logged_in"]:
@@ -68,11 +68,12 @@ if not st.session_state["logged_in"]:
         """
         <div style="
             text-align:center;
-            padding:25px 10px;
+            padding:20px;
         ">
-            <h1 style="margin-bottom:5px;">
+            <h1>
                 🏛️ Portal de Designações Mecânicas
             </h1>
+
             <p style="
                 color:#6B7280;
                 font-size:18px;
@@ -349,7 +350,9 @@ else:
         meses_disponiveis = []
 
 
-    # Garantir outubro de 2026
+    # ========================================================
+    # GARANTIR OUTUBRO DE 2026
+    # ========================================================
 
     if "2026-10" not in meses_disponiveis:
 
@@ -394,8 +397,7 @@ else:
         )
 
         st.sidebar.success(
-            f"✅ {len(dados_escala)} "
-            f"registros encontrados"
+            f"✅ {len(dados_escala)} registros encontrados"
         )
 
     except Exception as err:
@@ -471,7 +473,7 @@ else:
     with tab1:
 
         # ----------------------------------------------------
-        # CABEÇALHO BONITO
+        # CABEÇALHO
         # ----------------------------------------------------
 
         st.markdown(
@@ -483,13 +485,11 @@ else:
                     #2563eb
                 );
                 padding:25px;
-                border-radius:16px;
+                border-radius:15px;
                 margin-bottom:25px;
                 color:white;
-                text-align:center;
-                box-shadow:
-                    0 4px 12px
-                    rgba(0,0,0,0.15);
+                box-shadow:0 4px 12px
+                rgba(0,0,0,0.15);
             ">
 
                 <h2 style="
@@ -521,7 +521,7 @@ else:
 
 
         # ----------------------------------------------------
-        # SE NÃO HOUVER ESCALAS
+        # SE NÃO EXISTIREM REGISTROS
         # ----------------------------------------------------
 
         if not datas_dict:
@@ -533,7 +533,7 @@ else:
 
 
         # ----------------------------------------------------
-        # MOSTRAR ESCALAS
+        # MOSTRAR ESCALA
         # ----------------------------------------------------
 
         else:
@@ -548,59 +548,114 @@ else:
                 2
             ):
 
-                c1, c2 = st.columns(
-                    2,
-                    gap="large"
-                )
+                col1, col2 = st.columns(2)
 
 
-                # ==================================================
+                # ============================================
                 # PRIMEIRA REUNIÃO
-                # ==================================================
+                # ============================================
 
                 dt1 = lista_datas[i]
 
-                with c1:
+                with col1:
 
-                    st.markdown(
-                        f"""
-                        <div style="
-                            background:#eff6ff;
-                            border-left:
-                                6px solid #2563eb;
-                            border-radius:12px;
-                            padding:16px;
-                            margin-bottom:18px;
-                            box-shadow:
-                                0 2px 8px
-                                rgba(0,0,0,0.08);
+                    html1 = f"""
+                    <div style="
+                        background:#ffffff;
+                        border-radius:15px;
+                        padding:20px;
+                        margin-bottom:20px;
+                        border-left:6px solid #1e3a8a;
+                        box-shadow:
+                            0 3px 10px
+                            rgba(0,0,0,0.10);
+                    ">
+
+                        <h3 style="
+                            margin:0 0 18px 0;
+                            color:#1e3a8a;
+                            font-size:18px;
                         ">
-
-                            <h3 style="
-                                margin:0 0 15px 0;
-                                color:#1e3a8a;
-                                font-size:18px;
-                            ">
-                                🔹 {dt1}
-                            </h3>
-                        """,
-                        unsafe_allow_html=True
-                    )
+                            🔹 {dt1}
+                        </h3>
+                    """
 
                     for item in datas_dict[dt1]:
 
-                        st.markdown(
-                            f"""
+                        html1 += f"""
+                        <div style="
+                            margin-bottom:12px;
+                        ">
+
+                            <strong style="
+                                color:#111827;
+                            ">
+                                {item['funcao']}
+                            </strong>
+
+                            <br>
+
+                            <span style="
+                                color:#374151;
+                                font-size:16px;
+                            ">
+                                {item['irmao']}
+                            </span>
+
+                        </div>
+                        """
+
+                    html1 += """
+                    </div>
+                    """
+
+                    st.markdown(
+                        html1,
+                        unsafe_allow_html=True
+                    )
+
+
+                # ============================================
+                # SEGUNDA REUNIÃO
+                # ============================================
+
+                if i + 1 < len(lista_datas):
+
+                    dt2 = lista_datas[i + 1]
+
+                    with col2:
+
+                        html2 = f"""
+                        <div style="
+                            background:#ffffff;
+                            border-radius:15px;
+                            padding:20px;
+                            margin-bottom:20px;
+                            border-left:6px solid #7e22ce;
+                            box-shadow:
+                                0 3px 10px
+                                rgba(0,0,0,0.10);
+                        ">
+
+                            <h3 style="
+                                margin:0 0 18px 0;
+                                color:#7e22ce;
+                                font-size:18px;
+                            ">
+                                🟣 {dt2}
+                            </h3>
+                        """
+
+                        for item in datas_dict[dt2]:
+
+                            html2 += f"""
                             <div style="
-                                background:white;
-                                padding:11px 13px;
-                                margin:8px 0;
-                                border-radius:9px;
-                                border:
-                                    1px solid #dbeafe;
+                                margin-bottom:12px;
                             ">
 
-                                <strong>
+                                <strong style="
+                                    color:#111827;
+                                ">
                                     {item['funcao']}
                                 </strong>
 
@@ -614,95 +669,20 @@ else:
                                 </span>
 
                             </div>
-                            """,
-                            unsafe_allow_html=True
-                        )
+                            """
 
-                    st.markdown(
-                        "</div>",
-                        unsafe_allow_html=True
-                    )
-
-
-                # ==================================================
-                # SEGUNDA REUNIÃO
-                # ==================================================
-
-                if i + 1 < len(lista_datas):
-
-                    dt2 = lista_datas[i + 1]
-
-                    with c2:
+                        html2 += """
+                        </div>
+                        """
 
                         st.markdown(
-                            f"""
-                            <div style="
-                                background:#faf5ff;
-                                border-left:
-                                    6px solid #9333ea;
-                                border-radius:12px;
-                                padding:16px;
-                                margin-bottom:18px;
-                                box-shadow:
-                                    0 2px 8px
-                                    rgba(0,0,0,0.08);
-                            ">
-
-                                <h3 style="
-                                    margin:0 0 15px 0;
-                                    color:#7e22ce;
-                                    font-size:18px;
-                                ">
-                                    🟣 {dt2}
-                                </h3>
-                            """,
+                            html2,
                             unsafe_allow_html=True
                         )
-
-                        for item in datas_dict[dt2]:
-
-                            st.markdown(
-                                f"""
-                                <div style="
-                                    background:white;
-                                    padding:11px 13px;
-                                    margin:8px 0;
-                                    border-radius:9px;
-                                    border:
-                                        1px solid #e9d5ff;
-                                ">
-
-                                    <strong>
-                                        {item['funcao']}
-                                    </strong>
-
-                                    <br>
-
-                                    <span style="
-                                        color:#374151;
-                                        font-size:16px;
-                                    ">
-                                        {item['irmao']}
-                                    </span>
-
-                                </div>
-                                """,
-                                unsafe_allow_html=True
-                            )
-
-                        st.markdown(
-                            "</div>",
-                            unsafe_allow_html=True
-                        )
-
-                st.markdown(
-                    "<br>",
-                    unsafe_allow_html=True
-                )
 
 
     # ========================================================
-    # ABA 2 — PROCURAR IRMÃO
+    # ABA 2 — PROCURAR POR IRMÃO
     # ========================================================
 
     with tab2:
@@ -724,9 +704,11 @@ else:
 
                 for item in itens:
 
-                    if busca.lower() in item[
-                        "irmao"
-                    ].lower():
+                    nome_irmao = str(
+                        item.get("irmao", "")
+                    )
+
+                    if busca.lower() in nome_irmao.lower():
 
                         st.success(
                             f"📅 **{dt}** — "
@@ -803,15 +785,30 @@ else:
 
                 c_mes, c_dia = st.columns(2)
 
+
+                # --------------------------------------------
+                # MÊS
+                # --------------------------------------------
+
                 mes_input = c_mes.text_input(
                     "Mês (Ano-Mês):",
                     value="2026-11"
                 )
 
+
+                # --------------------------------------------
+                # DATA
+                # --------------------------------------------
+
                 data_texto_input = c_dia.text_input(
                     "Data Formatada:",
                     value="Segunda-feira — 02/11/2026"
                 )
+
+
+                # --------------------------------------------
+                # FUNÇÃO E IRMÃO
+                # --------------------------------------------
 
                 c_func, c_irm = st.columns(2)
 
@@ -831,6 +828,11 @@ else:
                     "Nome do Irmão:"
                 )
 
+
+                # --------------------------------------------
+                # TIPO DE REUNIÃO
+                # --------------------------------------------
+
                 dia_sem_input = st.selectbox(
                     "Tipo de Reunião:",
                     ["seg", "sab"],
@@ -840,11 +842,17 @@ else:
                         else "Sábado"
                 )
 
+
+                # --------------------------------------------
+                # BOTÃO
+                # --------------------------------------------
+
                 enviar = st.form_submit_button(
                     "➕ Adicionar à Escala",
                     type="primary",
                     use_container_width=True
                 )
+
 
                 if enviar:
 
@@ -861,14 +869,10 @@ else:
                                 .table("escalas")
                                 .insert({
                                     "mes": mes_input.strip(),
-                                    "data_texto":
-                                        data_texto_input.strip(),
-                                    "dia_semana":
-                                        dia_sem_input,
-                                    "funcao":
-                                        funcao_input,
-                                    "irmao":
-                                        irmao_input.strip()
+                                    "data_texto": data_texto_input.strip(),
+                                    "dia_semana": dia_sem_input,
+                                    "funcao": funcao_input,
+                                    "irmao": irmao_input.strip()
                                 })
                                 .execute()
                             )
@@ -882,7 +886,7 @@ else:
                         except Exception as err:
 
                             st.error(
-                                f"Erro: {err}"
+                                f"Erro ao adicionar designação: {err}"
                             )
 
                     else:
@@ -927,6 +931,11 @@ else:
                         st.sidebar.columns(2)
                     )
 
+
+                    # ----------------------------------------
+                    # APROVAR
+                    # ----------------------------------------
+
                     if c_ap.button(
                         "✅",
                         key=f"ap_{u['id']}"
@@ -945,6 +954,10 @@ else:
                         st.rerun()
 
 
+                    # ----------------------------------------
+                    # RECUSAR
+                    # ----------------------------------------
+
                     if c_rec.button(
                         "❌",
                         key=f"rec_{u['id']}"
@@ -962,11 +975,13 @@ else:
 
                         st.rerun()
 
+
             else:
 
                 st.sidebar.caption(
                     "Nenhum utilizador pendente."
                 )
+
 
         except Exception as err:
 
