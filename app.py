@@ -1,9 +1,7 @@
 import os
 import re
-import hashlib
-import secrets
-from datetime import datetime, date
-from typing import Optional, Tuple
+from datetime import datetime
+from html import escape
 
 import streamlit as st
 from supabase import create_client, Client
@@ -14,10 +12,113 @@ from supabase import create_client, Client
 # ============================================================
 
 st.set_page_config(
-    page_title="Designações Mecânicas",
-    page_icon="📋",
+    page_title="Designações Mecânicas — Congregação Jardim América",
+    page_icon="🏛️",
     layout="wide",
-    initial_sidebar_state="collapsed",
+    initial_sidebar_state="expanded"
+)
+
+
+# ============================================================
+# ESTILO VISUAL
+# ============================================================
+
+st.markdown(
+    """
+    <style>
+
+    /* Fundo geral */
+    .stApp {
+        background-color: #f8fafc;
+    }
+
+    /* Sidebar */
+    section[data-testid="stSidebar"] {
+        background-color: #f1f5f9;
+    }
+
+    /* Botões */
+    .stButton > button {
+        border-radius: 10px;
+        font-weight: 600;
+    }
+
+    /* Caixa de informação */
+    .info-card {
+        background: white;
+        border-radius: 16px;
+        padding: 20px;
+        margin-bottom: 18px;
+        box-shadow: 0 3px 12px rgba(0, 0, 0, 0.08);
+    }
+
+    /* Cabeçalho principal */
+    .main-header {
+        background: linear-gradient(
+            135deg,
+            #1e3a8a,
+            #2563eb
+        );
+        padding: 28px;
+        border-radius: 18px;
+        margin-bottom: 25px;
+        color: white;
+        box-shadow: 0 5px 18px rgba(0, 0, 0, 0.15);
+    }
+
+    .main-header h1 {
+        color: white;
+        margin: 0;
+        font-size: 30px;
+    }
+
+    .main-header p {
+        margin: 6px 0 0 0;
+    }
+
+    /* Cabeçalho das reuniões */
+    .meeting-title {
+        font-size: 20px;
+        font-weight: 700;
+        margin-bottom: 18px;
+    }
+
+    /* Item da designação */
+    .assignment {
+        padding: 10px 0;
+        border-bottom: 1px solid #e5e7eb;
+    }
+
+    .assignment:last-child {
+        border-bottom: none;
+    }
+
+    .assignment-function {
+        font-weight: 700;
+        color: #111827;
+        font-size: 15px;
+    }
+
+    .assignment-name {
+        color: #374151;
+        font-size: 16px;
+        margin-top: 4px;
+    }
+
+    /* Login */
+    .login-title {
+        text-align: center;
+        padding: 15px;
+    }
+
+    /* Pequenos textos */
+    .muted {
+        color: #6b7280;
+    }
+
+    </style>
+    """,
+    unsafe_allow_html=True
 )
 
 
@@ -25,1413 +126,1795 @@ st.set_page_config(
 # CONFIGURAÇÃO DO SUPABASE
 # ============================================================
 
-def obter_config_supabase():
-    try:
-        url = st.secrets["SUPABASE_URL"]
-        key = st.secrets["SUPABASE_KEY"]
-    except Exception:
-        url = os.getenv("SUPABASE_URL")
-        key = os.getenv("SUPABASE_KEY")
+try:
+    SUPABASE_URL = st.secrets["SUPABASE_URL"]
+    SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
 
-    if not url or not key:
-        st.error(
-            "As configurações do Supabase não foram encontradas. "
-            "Configure SUPABASE_URL e SUPABASE_KEY."
-        )
-        st.stop()
+except Exception:
+    st.error(
+        """
+        ⚠️ As configurações do Supabase não foram encontradas.
 
-    return url, key
-
-
-SUPABASE_URL, SUPABASE_KEY = obter_config_supabase()
+        Configure `SUPABASE_URL` e `SUPABASE_KEY`
+        nos Secrets do seu aplicativo no Streamlit Cloud.
+        """
+    )
+    st.stop()
 
 
 @st.cache_resource
-def criar_cliente_supabase() -> Client:
-    return create_client(SUPABASE_URL, SUPABASE_KEY)
-
-
-supabase = criar_cliente_supabase()
-
-
-# ============================================================
-# ESTILO
-# ============================================================
-
-st.markdown(
-    """
-    <style>
-        .main {
-            padding-top: 1rem;
-        }
-
-        .titulo-principal {
-            text-align: center;
-            font-size: 2rem;
-            font-weight: 700;
-            margin-bottom: 0.2rem;
-        }
-
-        .subtitulo {
-            text-align: center;
-            color: #666;
-            margin-bottom: 1.5rem;
-        }
-
-        .card {
-            padding: 1.2rem;
-            border-radius: 12px;
-            border: 1px solid #ddd;
-            margin-bottom: 1rem;
-            background: white;
-        }
-
-        .segunda-feira {
-            border-left: 6px solid #4CAF50;
-        }
-
-        .sabado {
-            border-left: 6px solid #2196F3;
-        }
-
-        .nome-irmao {
-            font-weight: 700;
-            font-size: 1.05rem;
-        }
-
-        .funcao {
-            color: #555;
-            margin-top: 4px;
-        }
-
-        .data-escala {
-            font-weight: 700;
-            margin-bottom: 0.7rem;
-        }
-
-        .status-pendente {
-            padding: 8px;
-            border-radius: 8px;
-            background: #fff3cd;
-            color: #856404;
-        }
-
-        .status-aprovado {
-            padding: 8px;
-            border-radius: 8px;
-            background: #d4edda;
-            color: #155724;
-        }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
-
-
-# ============================================================
-# CONSTANTES
-# ============================================================
-
-FUNCOES = [
-    "🗣️ Oração Inicial",
-    "🗣️ Oração Final",
-    "📖 Leitor A Sentinela",
-    "🎤 Microfones",
-    "🚪 Ind. Entrada",
-    "🏛️ Ind. Auditório",
-]
-
-DIAS_REUNIAO = {
-    "seg": "Segunda-feira",
-    "sab": "Sábado",
-}
-
-
-# ============================================================
-# SESSION STATE
-# ============================================================
-
-if "usuario" not in st.session_state:
-    st.session_state.usuario = None
-
-if "logado" not in st.session_state:
-    st.session_state.logado = False
-
-
-# ============================================================
-# FUNÇÕES DE SEGURANÇA
-# ============================================================
-
-def gerar_hash_senha(senha: str) -> str:
-    """
-    Gera hash PBKDF2-SHA256 para armazenar a senha.
-    """
-    salt = secrets.token_bytes(16)
-
-    chave = hashlib.pbkdf2_hmac(
-        "sha256",
-        senha.encode("utf-8"),
-        salt,
-        120000,
-    )
-
-    return (
-        "pbkdf2_sha256$120000$"
-        + salt.hex()
-        + "$"
-        + chave.hex()
+def get_supabase() -> Client:
+    return create_client(
+        SUPABASE_URL,
+        SUPABASE_KEY
     )
 
 
-def verificar_senha(senha: str, senha_salva: str) -> bool:
-    """
-    Verifica senha nova com hash PBKDF2.
-    Também aceita temporariamente senha antiga em texto puro
-    para permitir migração.
-    """
+try:
+    supabase = get_supabase()
 
-    if not senha_salva:
-        return False
-
-    if senha_salva.startswith("pbkdf2_sha256$"):
-        try:
-            partes = senha_salva.split("$")
-
-            if len(partes) != 4:
-                return False
-
-            _, iteracoes, salt_hex, hash_hex = partes
-
-            iteracoes = int(iteracoes)
-
-            salt = bytes.fromhex(salt_hex)
-            hash_esperado = bytes.fromhex(hash_hex)
-
-            hash_atual = hashlib.pbkdf2_hmac(
-                "sha256",
-                senha.encode("utf-8"),
-                salt,
-                iteracoes,
-            )
-
-            return secrets.compare_digest(
-                hash_atual,
-                hash_esperado,
-            )
-
-        except Exception:
-            return False
-
-    # Compatibilidade com senhas antigas
-    return secrets.compare_digest(
-        senha,
-        senha_salva,
+except Exception:
+    st.error(
+        "⚠️ Não foi possível conectar ao banco de dados."
     )
+    st.stop()
 
 
 # ============================================================
-# VALIDAÇÕES
+# ESTADO DA SESSÃO
 # ============================================================
 
-def email_valido(email: str) -> bool:
+if "logged_in" not in st.session_state:
+    st.session_state["logged_in"] = False
+
+if "user_name" not in st.session_state:
+    st.session_state["user_name"] = ""
+
+if "user_role" not in st.session_state:
+    st.session_state["user_role"] = None
+
+if "user_id" not in st.session_state:
+    st.session_state["user_id"] = None
+
+
+# ============================================================
+# FUNÇÕES AUXILIARES
+# ============================================================
+
+def validar_email(email: str) -> bool:
+    """
+    Validação simples de e-mail.
+    """
     padrao = r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
     return bool(re.match(padrao, email))
 
 
-def nome_valido(nome: str) -> bool:
-    nome = nome.strip()
+def converter_data(data_texto: str):
+    """
+    Tenta encontrar uma data no formato DD/MM/YYYY
+    dentro do texto da reunião.
 
-    if len(nome) < 3:
-        return False
+    Exemplos aceitos:
+    Segunda-feira — 05/10/2026
+    Sábado — 10/10/2026
+    """
 
-    return True
-
-
-def senha_valida(senha: str) -> bool:
-    return len(senha) >= 6
-
-
-def obter_data(data_texto: str) -> Optional[date]:
-    formatos = [
-        "%d/%m/%Y",
-        "%d-%m-%Y",
-        "%Y-%m-%d",
-    ]
-
-    for formato in formatos:
-        try:
-            return datetime.strptime(
-                data_texto.strip(),
-                formato,
-            ).date()
-        except ValueError:
-            pass
-
-    return None
-
-
-def normalizar_data(data_input) -> Optional[date]:
-    if isinstance(data_input, datetime):
-        return data_input.date()
-
-    if isinstance(data_input, date):
-        return data_input
-
-    if isinstance(data_input, str):
-        return obter_data(data_input)
-
-    return None
-
-
-# ============================================================
-# FUNÇÕES DE USUÁRIO
-# ============================================================
-
-def buscar_usuario_por_email(email: str):
-    try:
-        resposta = (
-            supabase
-            .table("usuarios")
-            .select(
-                "id,nome,email,senha,telefone,status,perfil"
-            )
-            .eq("email", email.strip().lower())
-            .limit(1)
-            .execute()
-        )
-
-        if resposta.data:
-            return resposta.data[0]
-
-    except Exception:
+    if not data_texto:
         return None
 
-    return None
+    encontrado = re.search(
+        r"(\d{2})/(\d{2})/(\d{4})",
+        str(data_texto)
+    )
 
-
-def cadastrar_usuario(
-    nome: str,
-    email: str,
-    senha: str,
-    telefone: str,
-):
-    nome = nome.strip()
-    email = email.strip().lower()
-    telefone = telefone.strip()
-
-    if not nome_valido(nome):
-        return False, "Digite um nome válido."
-
-    if not email_valido(email):
-        return False, "Digite um e-mail válido."
-
-    if not senha_valida(senha):
-        return False, "A senha deve ter pelo menos 6 caracteres."
-
-    existente = buscar_usuario_por_email(email)
-
-    if existente:
-        return False, "Este e-mail já está cadastrado."
-
-    senha_hash = gerar_hash_senha(senha)
-
-    dados = {
-        "nome": nome,
-        "email": email,
-        "senha": senha_hash,
-        "telefone": telefone,
-        "status": "pendente",
-        "perfil": "usuario",
-    }
+    if not encontrado:
+        return None
 
     try:
-        supabase.table("usuarios").insert(dados).execute()
+        dia = int(encontrado.group(1))
+        mes = int(encontrado.group(2))
+        ano = int(encontrado.group(3))
 
-        return (
-            True,
-            "Cadastro realizado. Aguarde a aprovação do administrador.",
+        return datetime(
+            ano,
+            mes,
+            dia
         )
 
-    except Exception:
-        return False, "Não foi possível realizar o cadastro."
+    except ValueError:
+        return None
 
 
-def autenticar_usuario(
-    email: str,
-    senha: str,
-) -> Tuple[bool, Optional[dict], str]:
+def nome_dia_semana(data):
+    """
+    Retorna o nome do dia da semana.
+    """
 
-    email = email.strip().lower()
+    if data is None:
+        return ""
 
-    if not email_valido(email):
-        return False, None, "E-mail ou senha inválidos."
+    dias = {
+        0: "Segunda-feira",
+        1: "Terça-feira",
+        2: "Quarta-feira",
+        3: "Quinta-feira",
+        4: "Sexta-feira",
+        5: "Sábado",
+        6: "Domingo"
+    }
 
-    usuario = buscar_usuario_por_email(email)
-
-    if not usuario:
-        return False, None, "E-mail ou senha inválidos."
-
-    if not verificar_senha(
-        senha,
-        usuario.get("senha", ""),
-    ):
-        return False, None, "E-mail ou senha inválidos."
-
-    status = str(
-        usuario.get("status", "")
-    ).lower().strip()
-
-    if status == "pendente":
-        return (
-            False,
-            None,
-            "Seu cadastro ainda está aguardando aprovação.",
-        )
-
-    if status in ("bloqueado", "rejeitado", "inativo"):
-        return (
-            False,
-            None,
-            "Seu cadastro não está autorizado.",
-        )
-
-    # Migração automática de senha antiga
-    senha_atual = usuario.get("senha", "")
-
-    if not senha_atual.startswith("pbkdf2_sha256$"):
-        try:
-            nova_senha = gerar_hash_senha(senha)
-
-            supabase.table("usuarios").update(
-                {"senha": nova_senha}
-            ).eq(
-                "id",
-                usuario["id"],
-            ).execute()
-
-        except Exception:
-            pass
-
-    return True, usuario, ""
-
-
-def usuario_e_admin() -> bool:
-    usuario = st.session_state.get("usuario")
-
-    if not usuario:
-        return False
-
-    perfil = str(
-        usuario.get("perfil", "")
-    ).lower().strip()
-
-    return perfil in (
-        "admin",
-        "administrador",
+    return dias.get(
+        data.weekday(),
+        ""
     )
 
 
-def fazer_logout():
-    st.session_state.usuario = None
-    st.session_state.logado = False
-    st.rerun()
+def normalizar_data_texto(
+    data_texto: str,
+    dia_semana: str = ""
+) -> str:
+    """
+    Mantém o texto original quando possível,
+    mas evita repetir o nome do dia.
+    """
+
+    data = converter_data(data_texto)
+
+    if data is None:
+        return str(data_texto or "Data não informada")
+
+    dia = nome_dia_semana(data)
+
+    return f"{dia} — {data.strftime('%d/%m/%Y')}"
 
 
-# ============================================================
-# FUNÇÕES DE ESCALAS
-# ============================================================
+def chave_ordenacao_reuniao(item):
+    """
+    Ordenação cronológica real.
 
-def buscar_meses():
+    Caso a data não possa ser identificada,
+    joga o registro para o final.
+    """
+
+    data_texto = item.get(
+        "data_texto",
+        ""
+    )
+
+    data = converter_data(
+        str(data_texto)
+    )
+
+    if data is None:
+        return (
+            datetime.max,
+            str(data_texto)
+        )
+
+    return (
+        data,
+        str(data_texto)
+    )
+
+
+def ordenar_dados_escala(dados):
+    """
+    Ordena todos os registros pela data real.
+    """
+
+    return sorted(
+        dados,
+        key=chave_ordenacao_reuniao
+    )
+
+
+def montar_datas(dados):
+    """
+    Agrupa as designações por reunião/data.
+    """
+
+    datas = {}
+
+    dados_ordenados = ordenar_dados_escala(
+        dados
+    )
+
+    for item in dados_ordenados:
+
+        data_texto = str(
+            item.get(
+                "data_texto",
+                "Data não informada"
+            )
+        ).strip()
+
+        if not data_texto:
+            data_texto = "Data não informada"
+
+        if data_texto not in datas:
+            datas[data_texto] = []
+
+        datas[data_texto].append(
+            item
+        )
+
+    return datas
+
+
+def obter_cor_reuniao(item):
+    """
+    Define a cor de acordo com o dia da semana.
+    """
+
+    dia_semana = str(
+        item.get(
+            "dia_semana",
+            ""
+        )
+    ).lower().strip()
+
+    if dia_semana == "sab":
+        return "#7e22ce"
+
+    if dia_semana == "seg":
+        return "#1e3a8a"
+
+    data = converter_data(
+        str(
+            item.get(
+                "data_texto",
+                ""
+            )
+        )
+    )
+
+    if data is not None:
+
+        if data.weekday() == 5:
+            return "#7e22ce"
+
+        if data.weekday() == 0:
+            return "#1e3a8a"
+
+    return "#2563eb"
+
+
+def obter_icone_reuniao(item):
+    """
+    Define o ícone da reunião.
+    """
+
+    dia_semana = str(
+        item.get(
+            "dia_semana",
+            ""
+        )
+    ).lower().strip()
+
+    if dia_semana == "sab":
+        return "🟣"
+
+    if dia_semana == "seg":
+        return "🔵"
+
+    data = converter_data(
+        str(
+            item.get(
+                "data_texto",
+                ""
+            )
+        )
+    )
+
+    if data is not None:
+
+        if data.weekday() == 5:
+            return "🟣"
+
+        if data.weekday() == 0:
+            return "🔵"
+
+    return "📅"
+
+
+def obter_titulo_reuniao(
+    data_texto,
+    itens
+):
+    """
+    Cria um título limpo:
+
+    📅 Segunda-feira — 05/10/2026
+
+    sem repetir o nome do dia.
+    """
+
+    data = converter_data(
+        str(data_texto)
+    )
+
+    if data is not None:
+
+        dia = nome_dia_semana(
+            data
+        )
+
+        return (
+            f"{dia} — "
+            f"{data.strftime('%d/%m/%Y')}"
+        )
+
+    for item in itens:
+
+        dia_semana = str(
+            item.get(
+                "dia_semana",
+                ""
+            )
+        ).lower().strip()
+
+        if dia_semana == "sab":
+            return f"Sábado — {data_texto}"
+
+        if dia_semana == "seg":
+            return f"Segunda-feira — {data_texto}"
+
+    return str(data_texto)
+
+
+def obter_mes_nome(mes):
+    """
+    Converte YYYY-MM para um nome amigável.
+    """
+
+    nomes = {
+        1: "Janeiro",
+        2: "Fevereiro",
+        3: "Março",
+        4: "Abril",
+        5: "Maio",
+        6: "Junho",
+        7: "Julho",
+        8: "Agosto",
+        9: "Setembro",
+        10: "Outubro",
+        11: "Novembro",
+        12: "Dezembro"
+    }
+
     try:
-        resposta = (
+
+        partes = str(
+            mes
+        ).split("-")
+
+        ano = int(partes[0])
+        numero = int(partes[1])
+
+        return (
+            f"{nomes.get(numero, str(numero))} "
+            f"de {ano}"
+        )
+
+    except Exception:
+        return str(mes)
+
+
+# ============================================================
+# TELA DE LOGIN / CADASTRO
+# ============================================================
+
+if not st.session_state["logged_in"]:
+
+    st.markdown(
+        """
+        <div class="login-title">
+
+            <h1>
+                🏛️ Portal de Designações Mecânicas
+            </h1>
+
+            <p class="muted" style="font-size:18px;">
+                Congregação Jardim América
+            </p>
+
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+    st.divider()
+
+    col1, col2, col3 = st.columns(
+        [1, 1.4, 1]
+    )
+
+    with col2:
+
+        tab_login, tab_cadastro = st.tabs(
+            [
+                "🔑 Entrar na Conta",
+                "📝 Criar Nova Conta"
+            ]
+        )
+
+        # ====================================================
+        # LOGIN
+        # ====================================================
+
+        with tab_login:
+
+            st.subheader(
+                "Acesso dos Irmãos"
+            )
+
+            email_login = st.text_input(
+                "E-mail registado:",
+                key="login_email"
+            ).strip().lower()
+
+            senha_login = st.text_input(
+                "Palavra-passe:",
+                type="password",
+                key="login_senha"
+            )
+
+            if st.button(
+                "Entrar no Portal",
+                type="primary",
+                use_container_width=True
+            ):
+
+                if (
+                    not email_login
+                    or not senha_login
+                ):
+
+                    st.warning(
+                        "Preencha o e-mail e a palavra-passe."
+                    )
+
+                elif not validar_email(
+                    email_login
+                ):
+
+                    st.warning(
+                        "Digite um e-mail válido."
+                    )
+
+                else:
+
+                    try:
+
+                        res = (
+                            supabase
+                            .table("usuarios")
+                            .select(
+                                "id,nome,email,senha,"
+                                "telefone,status,perfil"
+                            )
+                            .eq(
+                                "email",
+                                email_login
+                            )
+                            .eq(
+                                "senha",
+                                senha_login
+                            )
+                            .execute()
+                        )
+
+                        if res.data:
+
+                            user = res.data[0]
+
+                            status = user.get(
+                                "status"
+                            )
+
+                            if status == "aprovado":
+
+                                st.session_state[
+                                    "logged_in"
+                                ] = True
+
+                                st.session_state[
+                                    "user_name"
+                                ] = user.get(
+                                    "nome",
+                                    ""
+                                )
+
+                                st.session_state[
+                                    "user_role"
+                                ] = user.get(
+                                    "perfil",
+                                    "irmao"
+                                )
+
+                                st.session_state[
+                                    "user_id"
+                                ] = user.get(
+                                    "id"
+                                )
+
+                                st.success(
+                                    f"Bem-vindo, "
+                                    f"{user.get('nome', '')}!"
+                                )
+
+                                st.rerun()
+
+                            elif status == "pendente":
+
+                                st.warning(
+                                    "⏳ O seu registo ainda está "
+                                    "pendente de autorização."
+                                )
+
+                            else:
+
+                                st.error(
+                                    "❌ O seu pedido de acesso "
+                                    "não foi aprovado."
+                                )
+
+                        else:
+
+                            st.error(
+                                "E-mail ou palavra-passe incorretos."
+                            )
+
+                    except Exception:
+
+                        st.error(
+                            "Não foi possível verificar a conta."
+                        )
+
+
+        # ====================================================
+        # CADASTRO
+        # ====================================================
+
+        with tab_cadastro:
+
+            st.subheader(
+                "Registo de Novo Irmão"
+            )
+
+            nome_cad = st.text_input(
+                "Nome Completo:"
+            ).strip()
+
+            email_cad = st.text_input(
+                "E-mail:"
+            ).strip().lower()
+
+            tel_cad = st.text_input(
+                "WhatsApp:"
+            ).strip()
+
+            senha_cad = st.text_input(
+                "Crie uma Palavra-passe:",
+                type="password"
+            )
+
+            confirmar_senha = st.text_input(
+                "Confirme a Palavra-passe:",
+                type="password"
+            )
+
+            if st.button(
+                "Enviar Pedido de Registo",
+                use_container_width=True
+            ):
+
+                if (
+                    not nome_cad
+                    or not email_cad
+                    or not senha_cad
+                    or not confirmar_senha
+                    or not tel_cad
+                ):
+
+                    st.warning(
+                        "Preencha todos os campos."
+                    )
+
+                elif not validar_email(
+                    email_cad
+                ):
+
+                    st.warning(
+                        "Digite um e-mail válido."
+                    )
+
+                elif len(senha_cad) < 6:
+
+                    st.warning(
+                        "A palavra-passe deve ter pelo menos 6 caracteres."
+                    )
+
+                elif senha_cad != confirmar_senha:
+
+                    st.warning(
+                        "As palavras-passe não coincidem."
+                    )
+
+                else:
+
+                    try:
+
+                        check = (
+                            supabase
+                            .table("usuarios")
+                            .select("id")
+                            .eq(
+                                "email",
+                                email_cad
+                            )
+                            .execute()
+                        )
+
+                        if check.data:
+
+                            st.error(
+                                "Este e-mail já está registado."
+                            )
+
+                        else:
+
+                            (
+                                supabase
+                                .table("usuarios")
+                                .insert({
+                                    "nome": nome_cad,
+                                    "email": email_cad,
+                                    "telefone": tel_cad,
+                                    "senha": senha_cad,
+                                    "status": "pendente",
+                                    "perfil": "irmao"
+                                })
+                                .execute()
+                            )
+
+                            st.success(
+                                "✅ Registo enviado! "
+                                "Aguarde a aprovação."
+                            )
+
+                    except Exception:
+
+                        st.error(
+                            "Não foi possível realizar o registo."
+                        )
+
+
+# ============================================================
+# ÁREA INTERNA
+# ============================================================
+
+else:
+
+    # ========================================================
+    # BARRA LATERAL
+    # ========================================================
+
+    st.sidebar.title(
+        "🏛️ Jardim América"
+    )
+
+    st.sidebar.write(
+        f"👤 **{st.session_state['user_name']}**"
+    )
+
+    perfil_atual = str(
+        st.session_state.get(
+            "user_role",
+            "irmao"
+        )
+    ).upper()
+
+    st.sidebar.caption(
+        f"Perfil: **{perfil_atual}**"
+    )
+
+    if st.sidebar.button(
+        "🚪 Terminar Sessão",
+        use_container_width=True
+    ):
+
+        st.session_state["logged_in"] = False
+        st.session_state["user_name"] = ""
+        st.session_state["user_role"] = None
+        st.session_state["user_id"] = None
+
+        st.rerun()
+
+
+    # ========================================================
+    # BUSCAR MESES
+    # ========================================================
+
+    try:
+
+        res_meses = (
             supabase
             .table("escalas")
             .select("mes")
             .execute()
         )
 
-        meses = []
-
-        for item in resposta.data or []:
-            mes = item.get("mes")
-
-            if mes and mes not in meses:
-                meses.append(mes)
-
-        return sorted(meses)
+        meses_disponiveis = sorted(
+            list(
+                set(
+                    str(
+                        item.get("mes")
+                    ).strip()
+                    for item in (
+                        res_meses.data or []
+                    )
+                    if item.get("mes")
+                )
+            ),
+            reverse=True
+        )
 
     except Exception:
-        return []
+
+        meses_disponiveis = []
+
+        st.sidebar.error(
+            "Não foi possível carregar os meses."
+        )
 
 
-def buscar_escala(mes: str):
+    # ========================================================
+    # SE NÃO EXISTIREM MESES
+    # ========================================================
+
+    if not meses_disponiveis:
+
+        st.warning(
+            "Nenhuma escala foi cadastrada no banco de dados."
+        )
+
+        if st.session_state["user_role"] == "admin":
+
+            st.info(
+                "Como administrador, utilize "
+                "\"⚙️ Gerir Escalas\" para cadastrar a primeira escala."
+            )
+
+        st.stop()
+
+
+    # ========================================================
+    # SELECIONAR MÊS
+    # ========================================================
+
+    mes_selecionado = st.sidebar.selectbox(
+        "📅 Selecionar Mês:",
+        meses_disponiveis,
+        format_func=obter_mes_nome
+    )
+
+
+    # ========================================================
+    # BUSCAR ESCALAS
+    # ========================================================
+
     try:
-        resposta = (
+
+        res_escala = (
             supabase
             .table("escalas")
             .select(
                 "id,mes,data_texto,dia_semana,funcao,irmao"
             )
-            .eq("mes", mes)
+            .eq(
+                "mes",
+                str(
+                    mes_selecionado
+                ).strip()
+            )
             .execute()
         )
 
-        dados = resposta.data or []
+        dados_escala = (
+            res_escala.data or []
+        )
 
-        def chave_ordenacao(item):
-            data = obter_data(
-                str(item.get("data_texto", ""))
-            )
+        dados_escala = ordenar_dados_escala(
+            dados_escala
+        )
 
-            if data:
-                return (
-                    data,
-                    str(item.get("funcao", "")),
-                    str(item.get("irmao", "")),
-                )
-
-            return (
-                date.max,
-                str(item.get("funcao", "")),
-                str(item.get("irmao", "")),
-            )
-
-        dados.sort(key=chave_ordenacao)
-
-        return dados
+        st.sidebar.success(
+            f"✅ {len(dados_escala)} registros encontrados"
+        )
 
     except Exception:
-        return []
 
+        dados_escala = []
 
-def verificar_duplicidade(
-    mes: str,
-    data_texto: str,
-    funcao: str,
-    ignorar_id=None,
-) -> bool:
-
-    try:
-        consulta = (
-            supabase
-            .table("escalas")
-            .select("id")
-            .eq("mes", mes)
-            .eq("data_texto", data_texto)
-            .eq("funcao", funcao)
+        st.sidebar.error(
+            "Não foi possível carregar a escala."
         )
 
-        if ignorar_id is not None:
-            consulta = consulta.neq(
-                "id",
-                ignorar_id,
-            )
 
-        resposta = consulta.execute()
+    # ========================================================
+    # ORGANIZAR DATAS
+    # ========================================================
 
-        return bool(resposta.data)
-
-    except Exception:
-        return False
+    datas_dict = montar_datas(
+        dados_escala
+    )
 
 
-def adicionar_designacao(
-    mes: str,
-    data_texto: str,
-    dia_semana: str,
-    funcao: str,
-    irmao: str,
-):
-    data_real = obter_data(data_texto)
+    # ========================================================
+    # ABAS
+    # ========================================================
 
-    if not data_real:
-        return False, "Digite uma data válida."
+    if st.session_state["user_role"] == "admin":
 
-    if data_real.weekday() not in (0, 5):
-        return (
-            False,
-            "A data deve ser uma segunda-feira ou sábado.",
+        tab1, tab2, tab3, tab4 = st.tabs(
+            [
+                "📅 Escala do Mês",
+                "🔍 Procurar por Irmão",
+                "📄 Imprimir PDF",
+                "⚙️ Gerir Escalas"
+            ]
         )
 
-    if dia_semana == "seg" and data_real.weekday() != 0:
-        return (
-            False,
-            "A data informada não corresponde a uma segunda-feira.",
+    else:
+
+        tab1, tab2, tab3 = st.tabs(
+            [
+                "📅 Escala do Mês",
+                "🔍 Procurar por Irmão",
+                "📄 Imprimir PDF"
+            ]
         )
 
-    if dia_semana == "sab" and data_real.weekday() != 5:
-        return (
-            False,
-            "A data informada não corresponde a um sábado.",
-        )
-
-    if not mes.strip():
-        return False, "Informe o mês."
-
-    if not funcao.strip():
-        return False, "Informe a função."
-
-    if not irmao.strip():
-        return False, "Informe o nome do irmão."
-
-    if verificar_duplicidade(
-        mes,
-        data_texto,
-        funcao,
-    ):
-        return (
-            False,
-            "Já existe uma designação para essa função nessa data.",
-        )
-
-    dados = {
-        "mes": mes.strip(),
-        "data_texto": data_texto.strip(),
-        "dia_semana": dia_semana,
-        "funcao": funcao.strip(),
-        "irmao": irmao.strip(),
-    }
-
-    try:
-        supabase.table("escalas").insert(
-            dados
-        ).execute()
-
-        return True, "Designação adicionada."
-
-    except Exception:
-        return False, "Não foi possível adicionar a designação."
+        tab4 = None
 
 
-def editar_designacao(
-    id_designacao,
-    mes: str,
-    data_texto: str,
-    dia_semana: str,
-    funcao: str,
-    irmao: str,
-):
-    data_real = obter_data(data_texto)
+    # ========================================================
+    # ABA 1 — ESCALA DO MÊS
+    # ========================================================
 
-    if not data_real:
-        return False, "Digite uma data válida."
-
-    if data_real.weekday() not in (0, 5):
-        return (
-            False,
-            "A data deve ser uma segunda-feira ou sábado.",
-        )
-
-    if dia_semana == "seg" and data_real.weekday() != 0:
-        return (
-            False,
-            "A data não corresponde a uma segunda-feira.",
-        )
-
-    if dia_semana == "sab" and data_real.weekday() != 5:
-        return (
-            False,
-            "A data não corresponde a um sábado.",
-        )
-
-    if verificar_duplicidade(
-        mes,
-        data_texto,
-        funcao,
-        ignorar_id=id_designacao,
-    ):
-        return (
-            False,
-            "Já existe uma designação para essa função nessa data.",
-        )
-
-    dados = {
-        "mes": mes.strip(),
-        "data_texto": data_texto.strip(),
-        "dia_semana": dia_semana,
-        "funcao": funcao.strip(),
-        "irmao": irmao.strip(),
-    }
-
-    try:
-        (
-            supabase
-            .table("escalas")
-            .update(dados)
-            .eq("id", id_designacao)
-            .execute()
-        )
-
-        return True, "Designação atualizada."
-
-    except Exception:
-        return False, "Não foi possível atualizar a designação."
-
-
-def excluir_designacao(id_designacao):
-    try:
-        (
-            supabase
-            .table("escalas")
-            .delete()
-            .eq("id", id_designacao)
-            .execute()
-        )
-
-        return True, "Designação excluída."
-
-    except Exception:
-        return False, "Não foi possível excluir a designação."
-
-
-# ============================================================
-# FUNÇÕES DE EXIBIÇÃO
-# ============================================================
-
-def mostrar_escala(mes: str, somente_irmao: Optional[str] = None):
-    dados = buscar_escala(mes)
-
-    if somente_irmao:
-        nome_procurado = somente_irmao.strip().lower()
-
-        dados = [
-            item
-            for item in dados
-            if str(
-                item.get("irmao", "")
-            ).strip().lower() == nome_procurado
-        ]
-
-    if not dados:
-        st.info("Nenhuma designação encontrada.")
-        return
-
-    datas = {}
-
-    for item in dados:
-        data_texto = item.get(
-            "data_texto",
-            "",
-        )
-
-        if data_texto not in datas:
-            datas[data_texto] = []
-
-        datas[data_texto].append(item)
-
-    for data_texto, itens in datas.items():
-
-        dia = str(
-            itens[0].get("dia_semana", "")
-        ).lower()
-
-        if dia == "seg":
-            classe = "segunda-feira"
-            nome_dia = "Segunda-feira"
-        elif dia == "sab":
-            classe = "sabado"
-            nome_dia = "Sábado"
-        else:
-            data_real = obter_data(data_texto)
-
-            if data_real and data_real.weekday() == 0:
-                classe = "segunda-feira"
-                nome_dia = "Segunda-feira"
-            elif data_real and data_real.weekday() == 5:
-                classe = "sabado"
-                nome_dia = "Sábado"
-            else:
-                classe = ""
-                nome_dia = ""
+    with tab1:
 
         st.markdown(
             f"""
-            <div class="card {classe}">
-                <div class="data-escala">
-                    📅 {data_texto}
-                    {(" — " + nome_dia) if nome_dia else ""}
-                </div>
+            <div class="main-header">
+
+                <h1>
+                    📋 Designações Mecânicas
+                </h1>
+
+                <p style="font-size:18px;">
+                    Congregação Jardim América
+                </p>
+
+                <p style="font-size:16px; opacity:0.9;">
+                    📅 {escape(obter_mes_nome(mes_selecionado))}
+                </p>
+
+            </div>
             """,
-            unsafe_allow_html=True,
+            unsafe_allow_html=True
         )
 
-        for item in itens:
-            funcao = item.get("funcao", "")
-            irmao = item.get("irmao", "")
 
-            st.markdown(
-                f"""
-                <div class="nome-irmao">
-                    {irmao}
-                </div>
-                <div class="funcao">
-                    {funcao}
-                </div>
-                <hr>
-                """,
-                unsafe_allow_html=True,
+        if not datas_dict:
+
+            st.info(
+                "Nenhuma escala registada "
+                "no banco de dados para este mês."
             )
 
-        st.markdown(
-            "</div>",
-            unsafe_allow_html=True,
-        )
 
+        else:
 
-# ============================================================
-# LOGIN
-# ============================================================
+            # ------------------------------------------------
+            # LISTA DE REUNIÕES JÁ ORDENADA
+            # ------------------------------------------------
 
-if not st.session_state.logado:
-
-    st.markdown(
-        '<div class="titulo-principal">📋 Designações Mecânicas</div>',
-        unsafe_allow_html=True,
-    )
-
-    st.markdown(
-        '<div class="subtitulo">Congregação Jardim América</div>',
-        unsafe_allow_html=True,
-    )
-
-    tab_login, tab_cadastro = st.tabs(
-        [
-            "🔐 Entrar",
-            "📝 Criar cadastro",
-        ]
-    )
-
-    with tab_login:
-
-        st.subheader("Entrar")
-
-        email_login = st.text_input(
-            "E-mail",
-            key="email_login",
-        )
-
-        senha_login = st.text_input(
-            "Senha",
-            type="password",
-            key="senha_login",
-        )
-
-        if st.button(
-            "Entrar",
-            type="primary",
-            use_container_width=True,
-        ):
-            sucesso, usuario, mensagem = autenticar_usuario(
-                email_login,
-                senha_login,
+            lista_datas = list(
+                datas_dict.keys()
             )
 
-            if sucesso:
-                st.session_state.usuario = usuario
-                st.session_state.logado = True
-                st.rerun()
-            else:
-                st.error(mensagem)
+            # ------------------------------------------------
+            # DUAS COLUNAS
+            # ------------------------------------------------
 
-    with tab_cadastro:
+            for i in range(
+                0,
+                len(lista_datas),
+                2
+            ):
 
-        st.subheader("Criar cadastro")
-
-        nome = st.text_input(
-            "Nome completo",
-            key="cad_nome",
-        )
-
-        email = st.text_input(
-            "E-mail",
-            key="cad_email",
-        )
-
-        telefone = st.text_input(
-            "Telefone",
-            key="cad_telefone",
-        )
-
-        senha = st.text_input(
-            "Senha",
-            type="password",
-            key="cad_senha",
-        )
-
-        confirmar_senha = st.text_input(
-            "Confirmar senha",
-            type="password",
-            key="cad_confirmar",
-        )
-
-        if st.button(
-            "Cadastrar",
-            type="primary",
-            use_container_width=True,
-        ):
-
-            if senha != confirmar_senha:
-                st.error("As senhas não são iguais.")
-
-            else:
-                sucesso, mensagem = cadastrar_usuario(
-                    nome,
-                    email,
-                    senha,
-                    telefone,
+                col1, col2 = st.columns(
+                    2,
+                    gap="large"
                 )
 
-                if sucesso:
-                    st.success(mensagem)
-                else:
-                    st.error(mensagem)
 
-    st.stop()
+                # ============================================
+                # PRIMEIRA REUNIÃO
+                # ============================================
 
+                dt1 = lista_datas[i]
+                itens1 = datas_dict[dt1]
 
-# ============================================================
-# USUÁRIO LOGADO
-# ============================================================
+                item_referencia1 = itens1[0]
 
-usuario = st.session_state.usuario
+                cor1 = obter_cor_reuniao(
+                    item_referencia1
+                )
 
-nome_usuario = usuario.get(
-    "nome",
-    "Usuário",
-)
+                icone1 = obter_icone_reuniao(
+                    item_referencia1
+                )
 
-perfil_usuario = usuario.get(
-    "perfil",
-    "usuario",
-)
+                titulo1 = obter_titulo_reuniao(
+                    dt1,
+                    itens1
+                )
 
-st.markdown(
-    '<div class="titulo-principal">📋 Designações Mecânicas</div>',
-    unsafe_allow_html=True,
-)
+                with col1:
 
-st.markdown(
-    '<div class="subtitulo">Congregação Jardim América</div>',
-    unsafe_allow_html=True,
-)
+                    html1 = f"""
+                    <div class="info-card"
+                         style="
+                            border-left:6px solid {cor1};
+                         ">
 
+                        <div class="meeting-title"
+                             style="
+                                color:{cor1};
+                             ">
 
-# ============================================================
-# SIDEBAR
-# ============================================================
+                            {icone1} {escape(titulo1)}
 
-with st.sidebar:
+                        </div>
+                    """
 
-    st.markdown(
-        f"### 👤 {nome_usuario}"
-    )
+                    for item in itens1:
 
-    st.caption(
-        f"Perfil: {perfil_usuario}"
-    )
+                        funcao = escape(
+                            str(
+                                item.get(
+                                    "funcao",
+                                    ""
+                                )
+                            )
+                        )
 
-    if st.button(
-        "🚪 Sair",
-        use_container_width=True,
-    ):
-        fazer_logout()
+                        irmao = escape(
+                            str(
+                                item.get(
+                                    "irmao",
+                                    ""
+                                )
+                            )
+                        )
 
+                        html1 += f"""
+                        <div class="assignment">
 
-# ============================================================
-# ABAS
-# ============================================================
+                            <div class="assignment-function">
+                                {funcao}
+                            </div>
 
-if usuario_e_admin():
+                            <div class="assignment-name">
+                                {irmao}
+                            </div>
 
-    (
-        tab_escala,
-        tab_minhas,
-        tab_admin,
-        tab_usuarios,
-    ) = st.tabs(
-        [
-            "📋 Escala",
-            "🔎 Minhas Designações",
-            "⚙️ Gerenciar Escala",
-            "👥 Usuários",
-        ]
-    )
+                        </div>
+                        """
 
-else:
+                    html1 += """
+                    </div>
+                    """
 
-    (
-        tab_escala,
-        tab_minhas,
-    ) = st.tabs(
-        [
-            "📋 Escala",
-            "🔎 Minhas Designações",
-        ]
-    )
+                    st.markdown(
+                        html1,
+                        unsafe_allow_html=True
+                    )
 
 
-# ============================================================
-# ABA ESCALA
-# ============================================================
+                # ============================================
+                # SEGUNDA REUNIÃO
+                # ============================================
 
-with tab_escala:
+                if i + 1 < len(lista_datas):
 
-    st.header("📋 Escala")
+                    dt2 = lista_datas[i + 1]
 
-    meses = buscar_meses()
+                    itens2 = datas_dict[
+                        dt2
+                    ]
 
-    if not meses:
-        st.info(
-            "Ainda não existem meses cadastrados."
+                    item_referencia2 = itens2[0]
+
+                    cor2 = obter_cor_reuniao(
+                        item_referencia2
+                    )
+
+                    icone2 = obter_icone_reuniao(
+                        item_referencia2
+                    )
+
+                    titulo2 = obter_titulo_reuniao(
+                        dt2,
+                        itens2
+                    )
+
+                    with col2:
+
+                        html2 = f"""
+                        <div class="info-card"
+                             style="
+                                border-left:6px solid {cor2};
+                             ">
+
+                            <div class="meeting-title"
+                                 style="
+                                    color:{cor2};
+                                 ">
+
+                                {icone2} {escape(titulo2)}
+
+                            </div>
+                        """
+
+                        for item in itens2:
+
+                            funcao = escape(
+                                str(
+                                    item.get(
+                                        "funcao",
+                                        ""
+                                    )
+                                )
+                            )
+
+                            irmao = escape(
+                                str(
+                                    item.get(
+                                        "irmao",
+                                        ""
+                                    )
+                                )
+                            )
+
+                            html2 += f"""
+                            <div class="assignment">
+
+                                <div class="assignment-function">
+                                    {funcao}
+                                </div>
+
+                                <div class="assignment-name">
+                                    {irmao}
+                                </div>
+
+                            </div>
+                            """
+
+                        html2 += """
+                        </div>
+                        """
+
+                        st.markdown(
+                            html2,
+                            unsafe_allow_html=True
+                        )
+
+
+    # ========================================================
+    # ABA 2 — PROCURAR POR IRMÃO
+    # ========================================================
+
+    with tab2:
+
+        st.subheader(
+            "🔍 Procurar por Irmão"
         )
-    else:
 
-        mes_selecionado = st.selectbox(
-            "Selecione o mês",
-            meses,
-            key="mes_escala",
+        st.caption(
+            "Consulte as designações cadastradas para o mês selecionado."
         )
 
-        mostrar_escala(
+        busca = st.text_input(
+            "Digite o nome para consultar:",
+            value=st.session_state["user_name"],
+            placeholder="Ex.: João Silva"
+        ).strip()
+
+        if busca:
+
+            resultados = []
+
+            for dt, itens in datas_dict.items():
+
+                for item in itens:
+
+                    nome_irmao = str(
+                        item.get(
+                            "irmao",
+                            ""
+                        )
+                    )
+
+                    if (
+                        busca.lower()
+                        in nome_irmao.lower()
+                    ):
+
+                        resultados.append(
+                            {
+                                "data": dt,
+                                "funcao": item.get(
+                                    "funcao",
+                                    ""
+                                ),
+                                "irmao": nome_irmao
+                            }
+                        )
+
+
+            if resultados:
+
+                st.success(
+                    f"Encontradas "
+                    f"{len(resultados)} designação(ões)."
+                )
+
+                for resultado in resultados:
+
+                    data = resultado[
+                        "data"
+                    ]
+
+                    funcao = resultado[
+                        "funcao"
+                    ]
+
+                    irmao = resultado[
+                        "irmao"
+                    ]
+
+                    st.markdown(
+                        f"""
+                        <div class="info-card">
+
+                            <div style="
+                                font-size:17px;
+                                font-weight:700;
+                                color:#1e3a8a;
+                            ">
+                                📅 {escape(str(data))}
+                            </div>
+
+                            <div style="
+                                margin-top:8px;
+                                font-weight:600;
+                            ">
+                                {escape(str(funcao))}
+                            </div>
+
+                            <div style="
+                                margin-top:4px;
+                                color:#374151;
+                            ">
+                                👤 {escape(str(irmao))}
+                            </div>
+
+                        </div>
+                        """,
+                        unsafe_allow_html=True
+                    )
+
+            else:
+
+                st.warning(
+                    "Nenhuma designação localizada "
+                    "para este nome."
+                )
+
+
+    # ========================================================
+    # ABA 3 — PDF
+    # ========================================================
+
+    with tab3:
+
+        st.subheader(
+            "📄 Documento Oficial para Impressão"
+        )
+
+        st.caption(
+            f"Mês selecionado: "
+            f"**{obter_mes_nome(mes_selecionado)}**"
+        )
+
+        # ----------------------------------------------------
+        # Procurar PDF correspondente ao mês
+        # ----------------------------------------------------
+
+        nomes_pdf = []
+
+        mes_nome = obter_mes_nome(
             mes_selecionado
         )
 
-
-# ============================================================
-# ABA MINHAS DESIGNAÇÕES
-# ============================================================
-
-with tab_minhas:
-
-    st.header("🔎 Minhas Designações")
-
-    meses = buscar_meses()
-
-    if not meses:
-        st.info(
-            "Ainda não existem designações."
+        nomes_pdf.append(
+            f"Designações_Mecânicas_-_{mes_nome}.pdf"
         )
 
-    else:
-
-        mes_pessoal = st.selectbox(
-            "Mês",
-            meses,
-            key="mes_pessoal",
+        nomes_pdf.append(
+            f"Designacoes_Mecanicas_-_{mes_nome}.pdf"
         )
 
-        if usuario_e_admin():
+        nomes_pdf.append(
+            "Designações_Mecânicas_-_Outubro_2026.pdf"
+        )
 
-            nome_busca = st.text_input(
-                "Nome do irmão",
-                value=nome_usuario,
-                key="nome_busca_admin",
-            )
+        pdf_encontrado = None
+
+        for nome_pdf in nomes_pdf:
+
+            if os.path.exists(nome_pdf):
+
+                pdf_encontrado = nome_pdf
+                break
+
+
+        if pdf_encontrado:
+
+            with open(
+                pdf_encontrado,
+                "rb"
+            ) as arquivo_pdf:
+
+                st.download_button(
+                    label=(
+                        "🖨️ Descarregar / "
+                        "Imprimir PDF Oficial"
+                    ),
+                    data=arquivo_pdf.read(),
+                    file_name=pdf_encontrado,
+                    mime="application/pdf",
+                    use_container_width=True,
+                    type="primary"
+                )
 
         else:
-
-            nome_busca = nome_usuario
 
             st.info(
-                f"Mostrando as designações de **{nome_usuario}**."
+                "O PDF oficial deste mês não foi encontrado "
+                "no projeto."
             )
 
-        mostrar_escala(
-            mes_pessoal,
-            somente_irmao=nome_busca,
+
+    # ========================================================
+    # ABA 4 — ADMINISTRAR ESCALAS
+    # ========================================================
+
+    if tab4 is not None:
+
+        with tab4:
+
+            st.subheader(
+                "⚙️ Gerir Escalas"
+            )
+
+            st.markdown(
+                "### ➕ Cadastrar Nova Designação"
+            )
+
+            with st.form(
+                "form_nova_designacao"
+            ):
+
+                c_mes, c_data = st.columns(
+                    2
+                )
+
+                # --------------------------------------------
+                # MÊS
+                # --------------------------------------------
+
+                mes_input = c_mes.text_input(
+                    "Mês (Ano-Mês):",
+                    value=mes_selecionado,
+                    help="Exemplo: 2026-10"
+                ).strip()
+
+
+                # --------------------------------------------
+                # DATA
+                # --------------------------------------------
+
+                data_texto_input = c_data.text_input(
+                    "Data da Reunião:",
+                    placeholder="Ex.: Segunda-feira — 02/11/2026",
+                    help="Use uma data no formato DD/MM/AAAA."
+                ).strip()
+
+
+                c_func, c_irm = st.columns(
+                    2
+                )
+
+
+                # --------------------------------------------
+                # FUNÇÃO
+                # --------------------------------------------
+
+                funcao_input = c_func.selectbox(
+                    "Função:",
+                    [
+                        "🗣️ Oração Inicial",
+                        "🗣️ Oração Final",
+                        "📖 Leitor A Sentinela",
+                        "🎤 Microfones",
+                        "🚪 Ind. Entrada",
+                        "🏛️ Ind. Auditório"
+                    ]
+                )
+
+
+                # --------------------------------------------
+                # IRMÃO
+                # --------------------------------------------
+
+                irmao_input = c_irm.text_input(
+                    "Nome do Irmão:"
+                ).strip()
+
+
+                # --------------------------------------------
+                # TIPO DE REUNIÃO
+                # --------------------------------------------
+
+                dia_sem_input = st.selectbox(
+                    "Tipo de Reunião:",
+                    [
+                        "seg",
+                        "sab"
+                    ],
+                    format_func=lambda x:
+                        "Segunda-feira"
+                        if x == "seg"
+                        else "Sábado"
+                )
+
+
+                # --------------------------------------------
+                # BOTÃO
+                # --------------------------------------------
+
+                enviar = st.form_submit_button(
+                    "➕ Adicionar à Escala",
+                    type="primary",
+                    use_container_width=True
+                )
+
+
+                if enviar:
+
+                    if (
+                        not mes_input
+                        or not data_texto_input
+                        or not irmao_input
+                    ):
+
+                        st.warning(
+                            "Preencha todos os campos."
+                        )
+
+                    elif not re.match(
+                        r"^\d{4}-\d{2}$",
+                        mes_input
+                    ):
+
+                        st.warning(
+                            "O mês deve estar no formato YYYY-MM. "
+                            "Exemplo: 2026-11."
+                        )
+
+                    elif converter_data(
+                        data_texto_input
+                    ) is None:
+
+                        st.warning(
+                            "A data deve conter uma data válida "
+                            "no formato DD/MM/AAAA."
+                        )
+
+                    else:
+
+                        try:
+
+                            # --------------------------------
+                            # CONFIRMAR DIA DA SEMANA
+                            # --------------------------------
+
+                            data_real = converter_data(
+                                data_texto_input
+                            )
+
+                            dia_calculado = (
+                                "sab"
+                                if data_real.weekday() == 5
+                                else
+                                "seg"
+                                if data_real.weekday() == 0
+                                else
+                                None
+                            )
+
+                            if dia_calculado is None:
+
+                                st.warning(
+                                    "A data informada não é "
+                                    "uma segunda-feira ou sábado."
+                                )
+
+                            elif (
+                                dia_calculado
+                                != dia_sem_input
+                            ):
+
+                                st.warning(
+                                    "O tipo de reunião não corresponde "
+                                    "ao dia informado."
+                                )
+
+                            else:
+
+                                data_formatada = (
+                                    normalizar_data_texto(
+                                        data_texto_input,
+                                        dia_sem_input
+                                    )
+                                )
+
+                                # ----------------------------
+                                # VERIFICAR DUPLICIDADE
+                                # ----------------------------
+
+                                duplicado = (
+                                    supabase
+                                    .table("escalas")
+                                    .select("id")
+                                    .eq(
+                                        "mes",
+                                        mes_input
+                                    )
+                                    .eq(
+                                        "data_texto",
+                                        data_formatada
+                                    )
+                                    .eq(
+                                        "funcao",
+                                        funcao_input
+                                    )
+                                    .eq(
+                                        "irmao",
+                                        irmao_input
+                                    )
+                                    .execute()
+                                )
+
+                                if duplicado.data:
+
+                                    st.warning(
+                                        "Essa mesma designação "
+                                        "já está cadastrada."
+                                    )
+
+                                else:
+
+                                    (
+                                        supabase
+                                        .table("escalas")
+                                        .insert({
+                                            "mes": mes_input,
+                                            "data_texto": data_formatada,
+                                            "dia_semana": dia_sem_input,
+                                            "funcao": funcao_input,
+                                            "irmao": irmao_input
+                                        })
+                                        .execute()
+                                    )
+
+                                    st.success(
+                                        "✅ Designação adicionada!"
+                                    )
+
+                                    st.rerun()
+
+                        except Exception:
+
+                            st.error(
+                                "Não foi possível adicionar "
+                                "a designação."
+                            )
+
+
+            # =================================================
+            # GERENCIAR REGISTROS EXISTENTES
+            # =================================================
+
+            st.divider()
+
+            st.markdown(
+                "### 📋 Designações cadastradas neste mês"
+            )
+
+            if not dados_escala:
+
+                st.info(
+                    "Nenhuma designação cadastrada."
+                )
+
+            else:
+
+                for item in dados_escala:
+
+                    registro_id = item.get(
+                        "id"
+                    )
+
+                    data_texto = str(
+                        item.get(
+                            "data_texto",
+                            ""
+                        )
+                    )
+
+                    funcao = str(
+                        item.get(
+                            "funcao",
+                            ""
+                        )
+                    )
+
+                    irmao = str(
+                        item.get(
+                            "irmao",
+                            ""
+                        )
+                    )
+
+                    with st.expander(
+                        f"📅 {data_texto} — "
+                        f"{funcao} — "
+                        f"{irmao}"
+                    ):
+
+                        col_edit, col_delete = st.columns(
+                            [4, 1]
+                        )
+
+                        novo_nome = col_edit.text_input(
+                            "Irmão:",
+                            value=irmao,
+                            key=f"nome_{registro_id}"
+                        )
+
+                        if col_edit.button(
+                            "💾 Salvar alteração",
+                            key=f"salvar_{registro_id}",
+                            use_container_width=True
+                        ):
+
+                            if not novo_nome.strip():
+
+                                st.warning(
+                                    "O nome não pode ficar vazio."
+                                )
+
+                            else:
+
+                                try:
+
+                                    (
+                                        supabase
+                                        .table("escalas")
+                                        .update({
+                                            "irmao": novo_nome.strip()
+                                        })
+                                        .eq(
+                                            "id",
+                                            registro_id
+                                        )
+                                        .execute()
+                                    )
+
+                                    st.success(
+                                        "Alteração salva."
+                                    )
+
+                                    st.rerun()
+
+                                except Exception:
+
+                                    st.error(
+                                        "Não foi possível salvar a alteração."
+                                    )
+
+
+                        if col_delete.button(
+                            "🗑️ Excluir",
+                            key=f"excluir_{registro_id}",
+                            use_container_width=True
+                        ):
+
+                            try:
+
+                                (
+                                    supabase
+                                    .table("escalas")
+                                    .delete()
+                                    .eq(
+                                        "id",
+                                        registro_id
+                                    )
+                                    .execute()
+                                )
+
+                                st.success(
+                                    "Designação excluída."
+                                )
+
+                                st.rerun()
+
+                            except Exception:
+
+                                st.error(
+                                    "Não foi possível excluir a designação."
+                                )
+
+
+    # ========================================================
+    # PAINEL DO ADMIN — APROVAR UTILIZADORES
+    # ========================================================
+
+    if st.session_state["user_role"] == "admin":
+
+        st.sidebar.markdown(
+            "---"
         )
 
-
-# ============================================================
-# ABA ADMINISTRADOR — GERENCIAR ESCALA
-# ============================================================
-
-if usuario_e_admin():
-
-    with tab_admin:
-
-        st.header("⚙️ Gerenciar Escala")
-
-        meses = buscar_meses()
-
-        if meses:
-            mes_admin = st.selectbox(
-                "Mês da escala",
-                meses,
-                key="mes_admin",
-            )
-        else:
-            mes_admin = ""
-
-        st.subheader("➕ Adicionar designação")
-
-        col1, col2 = st.columns(2)
-
-        with col1:
-
-            novo_mes = st.text_input(
-                "Mês",
-                value=mes_admin,
-                placeholder="Ex.: Outubro 2026",
-            )
-
-            nova_data = st.date_input(
-                "Data",
-                value=date.today(),
-                format="DD/MM/YYYY",
-            )
-
-            novo_dia = st.selectbox(
-                "Dia da reunião",
-                options=[
-                    "seg",
-                    "sab",
-                ],
-                format_func=lambda x: DIAS_REUNIAO[x],
-            )
-
-        with col2:
-
-            nova_funcao = st.selectbox(
-                "Função",
-                FUNCOES,
-            )
-
-            novo_irmao = st.text_input(
-                "Irmão",
-            )
-
-        if st.button(
-            "Adicionar designação",
-            type="primary",
-            use_container_width=True,
-        ):
-
-            if nova_data:
-
-                data_formatada = nova_data.strftime(
-                    "%d/%m/%Y"
-                )
-
-                sucesso, mensagem = adicionar_designacao(
-                    novo_mes,
-                    data_formatada,
-                    novo_dia,
-                    nova_funcao,
-                    novo_irmao,
-                )
-
-                if sucesso:
-                    st.success(mensagem)
-                    st.rerun()
-                else:
-                    st.error(mensagem)
-
-        st.divider()
-
-        st.subheader("✏️ Designações cadastradas")
-
-        if mes_admin:
-
-            dados_admin = buscar_escala(
-                mes_admin
-            )
-
-            if not dados_admin:
-                st.info(
-                    "Nenhuma designação cadastrada neste mês."
-                )
-
-            for item in dados_admin:
-
-                with st.expander(
-                    f"{item.get('data_texto', '')} — "
-                    f"{item.get('funcao', '')} — "
-                    f"{item.get('irmao', '')}"
-                ):
-
-                    col_a, col_b = st.columns(2)
-
-                    with col_a:
-
-                        editar_data = st.text_input(
-                            "Data",
-                            value=item.get(
-                                "data_texto",
-                                "",
-                            ),
-                            key=f"data_{item['id']}",
-                        )
-
-                        editar_dia = st.selectbox(
-                            "Dia",
-                            ["seg", "sab"],
-                            index=(
-                                0
-                                if item.get(
-                                    "dia_semana"
-                                ) == "seg"
-                                else 1
-                            ),
-                            format_func=lambda x: DIAS_REUNIAO[x],
-                            key=f"dia_{item['id']}",
-                        )
-
-                    with col_b:
-
-                        funcao_atual = item.get(
-                            "funcao",
-                            FUNCOES[0],
-                        )
-
-                        if funcao_atual in FUNCOES:
-                            indice_funcao = FUNCOES.index(
-                                funcao_atual
-                            )
-                        else:
-                            indice_funcao = 0
-
-                        editar_funcao = st.selectbox(
-                            "Função",
-                            FUNCOES,
-                            index=indice_funcao,
-                            key=f"funcao_{item['id']}",
-                        )
-
-                        editar_irmao = st.text_input(
-                            "Irmão",
-                            value=item.get(
-                                "irmao",
-                                "",
-                            ),
-                            key=f"irmao_{item['id']}",
-                        )
-
-                    col_salvar, col_excluir = st.columns(2)
-
-                    with col_salvar:
-
-                        if st.button(
-                            "💾 Salvar alterações",
-                            key=f"salvar_{item['id']}",
-                            use_container_width=True,
-                        ):
-
-                            sucesso, mensagem = editar_designacao(
-                                item["id"],
-                                mes_admin,
-                                editar_data,
-                                editar_dia,
-                                editar_funcao,
-                                editar_irmao,
-                            )
-
-                            if sucesso:
-                                st.success(mensagem)
-                                st.rerun()
-                            else:
-                                st.error(mensagem)
-
-                    with col_excluir:
-
-                        if st.button(
-                            "🗑️ Excluir",
-                            key=f"excluir_{item['id']}",
-                            use_container_width=True,
-                        ):
-
-                            sucesso, mensagem = excluir_designacao(
-                                item["id"]
-                            )
-
-                            if sucesso:
-                                st.success(mensagem)
-                                st.rerun()
-                            else:
-                                st.error(mensagem)
-
-
-# ============================================================
-# ABA ADMINISTRADOR — USUÁRIOS
-# ============================================================
-
-if usuario_e_admin():
-
-    with tab_usuarios:
-
-        st.header("👥 Gerenciar usuários")
+        st.sidebar.subheader(
+            "⚙️ Aprovar Utilizadores"
+        )
 
         try:
 
-            resposta = (
+            pendentes = (
                 supabase
                 .table("usuarios")
                 .select(
                     "id,nome,email,telefone,status,perfil"
                 )
-                .order(
-                    "nome"
+                .eq(
+                    "status",
+                    "pendente"
                 )
                 .execute()
             )
 
-            usuarios = resposta.data or []
+            usuarios_pendentes = (
+                pendentes.data or []
+            )
+
+            if usuarios_pendentes:
+
+                for u in usuarios_pendentes:
+
+                    st.sidebar.write(
+                        f"👤 **{u.get('nome', '')}**"
+                    )
+
+                    st.sidebar.caption(
+                        f"📧 {u.get('email', '')}"
+                    )
+
+                    st.sidebar.caption(
+                        f"📱 {u.get('telefone', 'Sem telefone')}"
+                    )
+
+                    c_ap, c_rec = (
+                        st.sidebar.columns(2)
+                    )
+
+
+                    # ----------------------------------------
+                    # APROVAR
+                    # ----------------------------------------
+
+                    if c_ap.button(
+                        "✅",
+                        key=f"ap_{u['id']}",
+                        help="Aprovar utilizador"
+                    ):
+
+                        try:
+
+                            (
+                                supabase
+                                .table("usuarios")
+                                .update({
+                                    "status": "aprovado"
+                                })
+                                .eq(
+                                    "id",
+                                    u["id"]
+                                )
+                                .execute()
+                            )
+
+                            st.rerun()
+
+                        except Exception:
+
+                            st.sidebar.error(
+                                "Não foi possível aprovar."
+                            )
+
+
+                    # ----------------------------------------
+                    # RECUSAR
+                    # ----------------------------------------
+
+                    if c_rec.button(
+                        "❌",
+                        key=f"rec_{u['id']}",
+                        help="Recusar utilizador"
+                    ):
+
+                        try:
+
+                            (
+                                supabase
+                                .table("usuarios")
+                                .update({
+                                    "status": "recusado"
+                                })
+                                .eq(
+                                    "id",
+                                    u["id"]
+                                )
+                                .execute()
+                            )
+
+                            st.rerun()
+
+                        except Exception:
+
+                            st.sidebar.error(
+                                "Não foi possível recusar."
+                            )
+
+                    st.sidebar.markdown(
+                        "---"
+                    )
+
+            else:
+
+                st.sidebar.caption(
+                    "Nenhum utilizador pendente."
+                )
 
         except Exception:
 
-            usuarios = []
-
-        if not usuarios:
-
-            st.info(
-                "Nenhum usuário cadastrado."
+            st.sidebar.error(
+                "Não foi possível carregar os utilizadores pendentes."
             )
-
-        else:
-
-            pendentes = [
-                u
-                for u in usuarios
-                if str(
-                    u.get("status", "")
-                ).lower() == "pendente"
-            ]
-
-            aprovados = [
-                u
-                for u in usuarios
-                if str(
-                    u.get("status", "")
-                ).lower() == "aprovado"
-            ]
-
-            st.subheader(
-                f"⏳ Pendentes ({len(pendentes)})"
-            )
-
-            if not pendentes:
-
-                st.info(
-                    "Não há cadastros aguardando aprovação."
-                )
-
-            for u in pendentes:
-
-                with st.container():
-
-                    st.markdown(
-                        f"""
-                        <div class="card status-pendente">
-                            <strong>{u.get('nome', '')}</strong><br>
-                            {u.get('email', '')}<br>
-                            Telefone: {u.get('telefone', '')}
-                        </div>
-                        """,
-                        unsafe_allow_html=True,
-                    )
-
-                    col_aprovar, col_rejeitar = st.columns(2)
-
-                    with col_aprovar:
-
-                        if st.button(
-                            "✅ Aprovar",
-                            key=f"aprovar_{u['id']}",
-                            use_container_width=True,
-                        ):
-
-                            try:
-
-                                (
-                                    supabase
-                                    .table("usuarios")
-                                    .update(
-                                        {
-                                            "status": "aprovado"
-                                        }
-                                    )
-                                    .eq(
-                                        "id",
-                                        u["id"],
-                                    )
-                                    .execute()
-                                )
-
-                                st.success(
-                                    "Usuário aprovado."
-                                )
-
-                                st.rerun()
-
-                            except Exception:
-
-                                st.error(
-                                    "Não foi possível aprovar o usuário."
-                                )
-
-                    with col_rejeitar:
-
-                        if st.button(
-                            "❌ Rejeitar",
-                            key=f"rejeitar_{u['id']}",
-                            use_container_width=True,
-                        ):
-
-                            try:
-
-                                (
-                                    supabase
-                                    .table("usuarios")
-                                    .update(
-                                        {
-                                            "status": "rejeitado"
-                                        }
-                                    )
-                                    .eq(
-                                        "id",
-                                        u["id"],
-                                    )
-                                    .execute()
-                                )
-
-                                st.success(
-                                    "Usuário rejeitado."
-                                )
-
-                                st.rerun()
-
-                            except Exception:
-
-                                st.error(
-                                    "Não foi possível rejeitar o usuário."
-                                )
-
-            st.divider()
-
-            st.subheader(
-                f"👤 Usuários aprovados ({len(aprovados)})"
-            )
-
-            for u in aprovados:
-
-                st.markdown(
-                    f"""
-                    <div class="card status-aprovado">
-                        <strong>{u.get('nome', '')}</strong><br>
-                        {u.get('email', '')}<br>
-                        Perfil: {u.get('perfil', 'usuario')}
-                    </div>
-                    """,
-                    unsafe_allow_html=True,
-                )
-
-
-# ============================================================
-# RODAPÉ
-# ============================================================
-
-st.divider()
-
-st.caption(
-    "Sistema de Designações Mecânicas — Congregação Jardim América"
-)
