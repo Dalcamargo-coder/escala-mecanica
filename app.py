@@ -20,7 +20,7 @@ st.set_page_config(
 
 SUPABASE_URL = "https://jwstginzuimrbvvavrlv.supabase.co"
 
-# COLOQUE AQUI SUA CHAVE ANON DO SUPABASE
+# COLE A SUA CHAVE ANON DO SUPABASE AQUI
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp3c3RnaW56dWltcmJ2dmF2cmx2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA2MjIwNDgsImV4cCI6MjEwNjE5ODA0OH0.XNLaxpWCElIntlXWS6_moHHCnzkTXUXBhcFoRx6K93M"
 
 
@@ -59,22 +59,28 @@ if "user_role" not in st.session_state:
 
 
 # ============================================================
-# TELA DE LOGIN / CADASTRO
+# TELA DE LOGIN
 # ============================================================
 
 if not st.session_state["logged_in"]:
 
     st.markdown(
-        "<h1 style='text-align:center;'>"
-        "🏛️ Portal de Designações Mecânicas"
-        "</h1>",
-        unsafe_allow_html=True
-    )
-
-    st.markdown(
-        "<p style='text-align:center;color:#6B7280;'>"
-        "Congregação Jardim América"
-        "</p>",
+        """
+        <div style="
+            text-align:center;
+            padding:25px 10px;
+        ">
+            <h1 style="margin-bottom:5px;">
+                🏛️ Portal de Designações Mecânicas
+            </h1>
+            <p style="
+                color:#6B7280;
+                font-size:18px;
+            ">
+                Congregação Jardim América
+            </p>
+        </div>
+        """,
         unsafe_allow_html=True
     )
 
@@ -382,7 +388,15 @@ else:
             .execute()
         )
 
-        dados_escala = res_escala.data or []
+        dados_escala = (
+            res_escala.data
+            or []
+        )
+
+        st.sidebar.success(
+            f"✅ {len(dados_escala)} "
+            f"registros encontrados"
+        )
 
     except Exception as err:
 
@@ -423,7 +437,7 @@ else:
 
 
     # ========================================================
-    # CRIAR ABAS
+    # ABAS
     # ========================================================
 
     if st.session_state["user_role"] == "admin":
@@ -456,10 +470,59 @@ else:
 
     with tab1:
 
-        st.subheader(
-            f"📋 Designações Mecânicas — "
-            f"{mes_selecionado}"
+        # ----------------------------------------------------
+        # CABEÇALHO BONITO
+        # ----------------------------------------------------
+
+        st.markdown(
+            f"""
+            <div style="
+                background:linear-gradient(
+                    135deg,
+                    #1e3a8a,
+                    #2563eb
+                );
+                padding:25px;
+                border-radius:16px;
+                margin-bottom:25px;
+                color:white;
+                text-align:center;
+                box-shadow:
+                    0 4px 12px
+                    rgba(0,0,0,0.15);
+            ">
+
+                <h2 style="
+                    margin:0;
+                    color:white;
+                ">
+                    📋 Designações Mecânicas
+                </h2>
+
+                <p style="
+                    margin:8px 0 0 0;
+                    font-size:18px;
+                ">
+                    Congregação Jardim América
+                </p>
+
+                <p style="
+                    margin:6px 0 0 0;
+                    font-size:16px;
+                    opacity:0.9;
+                ">
+                    📅 {mes_selecionado}
+                </p>
+
+            </div>
+            """,
+            unsafe_allow_html=True
         )
+
+
+        # ----------------------------------------------------
+        # SE NÃO HOUVER ESCALAS
+        # ----------------------------------------------------
 
         if not datas_dict:
 
@@ -467,6 +530,11 @@ else:
                 "Nenhuma escala registada "
                 "no banco de dados para este mês."
             )
+
+
+        # ----------------------------------------------------
+        # MOSTRAR ESCALAS
+        # ----------------------------------------------------
 
         else:
 
@@ -480,27 +548,85 @@ else:
                 2
             ):
 
-                c1, c2 = st.columns(2)
+                c1, c2 = st.columns(
+                    2,
+                    gap="large"
+                )
 
-                # PRIMEIRA DATA
+
+                # ==================================================
+                # PRIMEIRA REUNIÃO
+                # ==================================================
 
                 dt1 = lista_datas[i]
 
                 with c1:
 
-                    st.info(
-                        f"🔹 **{dt1}**"
+                    st.markdown(
+                        f"""
+                        <div style="
+                            background:#eff6ff;
+                            border-left:
+                                6px solid #2563eb;
+                            border-radius:12px;
+                            padding:16px;
+                            margin-bottom:18px;
+                            box-shadow:
+                                0 2px 8px
+                                rgba(0,0,0,0.08);
+                        ">
+
+                            <h3 style="
+                                margin:0 0 15px 0;
+                                color:#1e3a8a;
+                                font-size:18px;
+                            ">
+                                🔹 {dt1}
+                            </h3>
+                        """,
+                        unsafe_allow_html=True
                     )
 
                     for item in datas_dict[dt1]:
 
-                        st.write(
-                            f"**{item['funcao']}:** "
-                            f"{item['irmao']}"
+                        st.markdown(
+                            f"""
+                            <div style="
+                                background:white;
+                                padding:11px 13px;
+                                margin:8px 0;
+                                border-radius:9px;
+                                border:
+                                    1px solid #dbeafe;
+                            ">
+
+                                <strong>
+                                    {item['funcao']}
+                                </strong>
+
+                                <br>
+
+                                <span style="
+                                    color:#374151;
+                                    font-size:16px;
+                                ">
+                                    {item['irmao']}
+                                </span>
+
+                            </div>
+                            """,
+                            unsafe_allow_html=True
                         )
 
+                    st.markdown(
+                        "</div>",
+                        unsafe_allow_html=True
+                    )
 
-                # SEGUNDA DATA
+
+                # ==================================================
+                # SEGUNDA REUNIÃO
+                # ==================================================
 
                 if i + 1 < len(lista_datas):
 
@@ -508,22 +634,75 @@ else:
 
                     with c2:
 
-                        st.success(
-                            f"🟣 **{dt2}**"
+                        st.markdown(
+                            f"""
+                            <div style="
+                                background:#faf5ff;
+                                border-left:
+                                    6px solid #9333ea;
+                                border-radius:12px;
+                                padding:16px;
+                                margin-bottom:18px;
+                                box-shadow:
+                                    0 2px 8px
+                                    rgba(0,0,0,0.08);
+                            ">
+
+                                <h3 style="
+                                    margin:0 0 15px 0;
+                                    color:#7e22ce;
+                                    font-size:18px;
+                                ">
+                                    🟣 {dt2}
+                                </h3>
+                            """,
+                            unsafe_allow_html=True
                         )
 
                         for item in datas_dict[dt2]:
 
-                            st.write(
-                                f"**{item['funcao']}:** "
-                                f"{item['irmao']}"
+                            st.markdown(
+                                f"""
+                                <div style="
+                                    background:white;
+                                    padding:11px 13px;
+                                    margin:8px 0;
+                                    border-radius:9px;
+                                    border:
+                                        1px solid #e9d5ff;
+                                ">
+
+                                    <strong>
+                                        {item['funcao']}
+                                    </strong>
+
+                                    <br>
+
+                                    <span style="
+                                        color:#374151;
+                                        font-size:16px;
+                                    ">
+                                        {item['irmao']}
+                                    </span>
+
+                                </div>
+                                """,
+                                unsafe_allow_html=True
                             )
 
-                st.divider()
+                        st.markdown(
+                            "</div>",
+                            unsafe_allow_html=True
+                        )
+
+                st.markdown(
+                    "<br>",
+                    unsafe_allow_html=True
+                )
 
 
     # ========================================================
-    # ABA 2 — PROCURAR POR IRMÃO
+    # ABA 2 — PROCURAR IRMÃO
     # ========================================================
 
     with tab2:
@@ -607,7 +786,7 @@ else:
 
 
     # ========================================================
-    # ABA 4 — GERIR ESCALAS
+    # ABA 4 — ADMINISTRAR ESCALAS
     # ========================================================
 
     if tab4 is not None:
@@ -682,10 +861,14 @@ else:
                                 .table("escalas")
                                 .insert({
                                     "mes": mes_input.strip(),
-                                    "data_texto": data_texto_input.strip(),
-                                    "dia_semana": dia_sem_input,
-                                    "funcao": funcao_input,
-                                    "irmao": irmao_input.strip()
+                                    "data_texto":
+                                        data_texto_input.strip(),
+                                    "dia_semana":
+                                        dia_sem_input,
+                                    "funcao":
+                                        funcao_input,
+                                    "irmao":
+                                        irmao_input.strip()
                                 })
                                 .execute()
                             )
@@ -790,4 +973,3 @@ else:
             st.sidebar.error(
                 f"Erro ao carregar utilizadores: {err}"
             )
-
