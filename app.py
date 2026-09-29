@@ -1,9 +1,6 @@
-import os
-import re
-from datetime import datetime
-from html import escape
-
 import streamlit as st
+import os
+from datetime import datetime
 from supabase import create_client, Client
 
 
@@ -14,132 +11,16 @@ from supabase import create_client, Client
 st.set_page_config(
     page_title="Designações Mecânicas — Congregação Jardim América",
     page_icon="🏛️",
-    layout="wide",
-    initial_sidebar_state="expanded"
+    layout="wide"
 )
 
 
 # ============================================================
-# ESTILO VISUAL
+# CONEXÃO COM SUPABASE
 # ============================================================
 
-st.markdown(
-    """
-    <style>
-
-    /* Fundo geral */
-    .stApp {
-        background-color: #f8fafc;
-    }
-
-    /* Sidebar */
-    section[data-testid="stSidebar"] {
-        background-color: #f1f5f9;
-    }
-
-    /* Botões */
-    .stButton > button {
-        border-radius: 10px;
-        font-weight: 600;
-    }
-
-    /* Caixa de informação */
-    .info-card {
-        background: white;
-        border-radius: 16px;
-        padding: 20px;
-        margin-bottom: 18px;
-        box-shadow: 0 3px 12px rgba(0, 0, 0, 0.08);
-    }
-
-    /* Cabeçalho principal */
-    .main-header {
-        background: linear-gradient(
-            135deg,
-            #1e3a8a,
-            #2563eb
-        );
-        padding: 28px;
-        border-radius: 18px;
-        margin-bottom: 25px;
-        color: white;
-        box-shadow: 0 5px 18px rgba(0, 0, 0, 0.15);
-    }
-
-    .main-header h1 {
-        color: white;
-        margin: 0;
-        font-size: 30px;
-    }
-
-    .main-header p {
-        margin: 6px 0 0 0;
-    }
-
-    /* Cabeçalho das reuniões */
-    .meeting-title {
-        font-size: 20px;
-        font-weight: 700;
-        margin-bottom: 18px;
-    }
-
-    /* Item da designação */
-    .assignment {
-        padding: 10px 0;
-        border-bottom: 1px solid #e5e7eb;
-    }
-
-    .assignment:last-child {
-        border-bottom: none;
-    }
-
-    .assignment-function {
-        font-weight: 700;
-        color: #111827;
-        font-size: 15px;
-    }
-
-    .assignment-name {
-        color: #374151;
-        font-size: 16px;
-        margin-top: 4px;
-    }
-
-    /* Login */
-    .login-title {
-        text-align: center;
-        padding: 15px;
-    }
-
-    /* Pequenos textos */
-    .muted {
-        color: #6b7280;
-    }
-
-    </style>
-    """,
-    unsafe_allow_html=True
-)
-
-
-# ============================================================
-# CONFIGURAÇÃO DO SUPABASE
-# ============================================================
-
-try:
-    SUPABASE_URL = st.secrets["SUPABASE_URL"]
-    SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
-
-except Exception:
-    st.error(
-        """
-        ⚠️ As configurações do Supabase não foram encontradas.
-
-        Configure `SUPABASE_URL` e `SUPABASE_KEY`
-        nos Secrets do seu aplicativo no Streamlit Cloud.
-        """
-    )
-    st.stop()
+SUPABASE_URL = st.secrets["SUPABASE_URL"]
+SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
 
 
 @st.cache_resource
@@ -153,9 +34,9 @@ def get_supabase() -> Client:
 try:
     supabase = get_supabase()
 
-except Exception:
+except Exception as e:
     st.error(
-        "⚠️ Não foi possível conectar ao banco de dados."
+        f"Erro ao ligar ao banco de dados Supabase: {e}"
     )
     st.stop()
 
@@ -173,331 +54,146 @@ if "user_name" not in st.session_state:
 if "user_role" not in st.session_state:
     st.session_state["user_role"] = None
 
-if "user_id" not in st.session_state:
-    st.session_state["user_id"] = None
+
+# ============================================================
+# CSS
+# ============================================================
+
+st.markdown(
+    """
+    <style>
+
+    .main-title {
+        text-align: center;
+        padding: 20px 10px 10px 10px;
+    }
+
+    .main-title h1 {
+        margin-bottom: 5px;
+    }
+
+    .main-title p {
+        color: #6B7280;
+        font-size: 18px;
+    }
+
+    .scale-card {
+        background: white;
+        border-radius: 15px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 3px 12px rgba(0,0,0,0.10);
+    }
+
+    .scale-card h3 {
+        margin-top: 0;
+    }
+
+    .function {
+        margin-bottom: 12px;
+    }
+
+    .function-name {
+        font-weight: 700;
+        color: #111827;
+    }
+
+    .brother-name {
+        color: #374151;
+        font-size: 16px;
+    }
+
+    </style>
+    """,
+    unsafe_allow_html=True
+)
 
 
 # ============================================================
 # FUNÇÕES AUXILIARES
 # ============================================================
 
-def validar_email(email: str) -> bool:
+def converter_data(data_texto):
     """
-    Validação simples de e-mail.
-    """
-    padrao = r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
-    return bool(re.match(padrao, email))
-
-
-def converter_data(data_texto: str):
-    """
-    Tenta encontrar uma data no formato DD/MM/YYYY
-    dentro do texto da reunião.
-
-    Exemplos aceitos:
-    Segunda-feira — 05/10/2026
-    Sábado — 10/10/2026
+    Tenta localizar uma data no formato DD/MM/AAAA
+    dentro do texto da data.
     """
 
     if not data_texto:
-        return None
-
-    encontrado = re.search(
-        r"(\d{2})/(\d{2})/(\d{4})",
-        str(data_texto)
-    )
-
-    if not encontrado:
-        return None
+        return datetime.max
 
     try:
-        dia = int(encontrado.group(1))
-        mes = int(encontrado.group(2))
-        ano = int(encontrado.group(3))
+        texto = str(data_texto)
 
-        return datetime(
-            ano,
-            mes,
-            dia
-        )
+        partes = texto.split()
 
-    except ValueError:
-        return None
+        for parte in partes:
 
-
-def nome_dia_semana(data):
-    """
-    Retorna o nome do dia da semana.
-    """
-
-    if data is None:
-        return ""
-
-    dias = {
-        0: "Segunda-feira",
-        1: "Terça-feira",
-        2: "Quarta-feira",
-        3: "Quinta-feira",
-        4: "Sexta-feira",
-        5: "Sábado",
-        6: "Domingo"
-    }
-
-    return dias.get(
-        data.weekday(),
-        ""
-    )
-
-
-def normalizar_data_texto(
-    data_texto: str,
-    dia_semana: str = ""
-) -> str:
-    """
-    Mantém o texto original quando possível,
-    mas evita repetir o nome do dia.
-    """
-
-    data = converter_data(data_texto)
-
-    if data is None:
-        return str(data_texto or "Data não informada")
-
-    dia = nome_dia_semana(data)
-
-    return f"{dia} — {data.strftime('%d/%m/%Y')}"
-
-
-def chave_ordenacao_reuniao(item):
-    """
-    Ordenação cronológica real.
-
-    Caso a data não possa ser identificada,
-    joga o registro para o final.
-    """
-
-    data_texto = item.get(
-        "data_texto",
-        ""
-    )
-
-    data = converter_data(
-        str(data_texto)
-    )
-
-    if data is None:
-        return (
-            datetime.max,
-            str(data_texto)
-        )
-
-    return (
-        data,
-        str(data_texto)
-    )
-
-
-def ordenar_dados_escala(dados):
-    """
-    Ordena todos os registros pela data real.
-    """
-
-    return sorted(
-        dados,
-        key=chave_ordenacao_reuniao
-    )
-
-
-def montar_datas(dados):
-    """
-    Agrupa as designações por reunião/data.
-    """
-
-    datas = {}
-
-    dados_ordenados = ordenar_dados_escala(
-        dados
-    )
-
-    for item in dados_ordenados:
-
-        data_texto = str(
-            item.get(
-                "data_texto",
-                "Data não informada"
+            parte_limpa = (
+                parte
+                .replace("—", "")
+                .replace("-", "")
+                .strip()
             )
-        ).strip()
 
-        if not data_texto:
-            data_texto = "Data não informada"
+            if "/" in parte_limpa:
 
-        if data_texto not in datas:
-            datas[data_texto] = []
+                try:
+                    return datetime.strptime(
+                        parte_limpa,
+                        "%d/%m/%Y"
+                    )
 
-        datas[data_texto].append(
-            item
-        )
+                except ValueError:
+                    pass
 
-    return datas
+    except Exception:
+        pass
+
+    return datetime.max
+
+
+def formatar_data_titulo(data_texto):
+    """
+    Remove informações duplicadas da data quando possível.
+    """
+
+    if not data_texto:
+        return "Data não informada"
+
+    texto = str(data_texto).strip()
+
+    # Se estiver no formato:
+    # Sábado — 10/10/2026 — Sábado
+    # transforma em:
+    # Sábado — 10/10/2026
+
+    partes = [
+        p.strip()
+        for p in texto.split("—")
+        if p.strip()
+    ]
+
+    if len(partes) >= 2:
+
+        primeira = partes[0]
+        segunda = partes[1]
+
+        if primeira.lower() == partes[-1].lower():
+            return f"{primeira} — {segunda}"
+
+    return texto
 
 
 def obter_cor_reuniao(item):
-    """
-    Define a cor de acordo com o dia da semana.
-    """
+    dia = str(
+        item.get("dia_semana", "")
+    ).lower()
 
-    dia_semana = str(
-        item.get(
-            "dia_semana",
-            ""
-        )
-    ).lower().strip()
-
-    if dia_semana == "sab":
+    if dia == "sab":
         return "#7e22ce"
 
-    if dia_semana == "seg":
-        return "#1e3a8a"
-
-    data = converter_data(
-        str(
-            item.get(
-                "data_texto",
-                ""
-            )
-        )
-    )
-
-    if data is not None:
-
-        if data.weekday() == 5:
-            return "#7e22ce"
-
-        if data.weekday() == 0:
-            return "#1e3a8a"
-
-    return "#2563eb"
-
-
-def obter_icone_reuniao(item):
-    """
-    Define o ícone da reunião.
-    """
-
-    dia_semana = str(
-        item.get(
-            "dia_semana",
-            ""
-        )
-    ).lower().strip()
-
-    if dia_semana == "sab":
-        return "🟣"
-
-    if dia_semana == "seg":
-        return "🔵"
-
-    data = converter_data(
-        str(
-            item.get(
-                "data_texto",
-                ""
-            )
-        )
-    )
-
-    if data is not None:
-
-        if data.weekday() == 5:
-            return "🟣"
-
-        if data.weekday() == 0:
-            return "🔵"
-
-    return "📅"
-
-
-def obter_titulo_reuniao(
-    data_texto,
-    itens
-):
-    """
-    Cria um título limpo:
-
-    📅 Segunda-feira — 05/10/2026
-
-    sem repetir o nome do dia.
-    """
-
-    data = converter_data(
-        str(data_texto)
-    )
-
-    if data is not None:
-
-        dia = nome_dia_semana(
-            data
-        )
-
-        return (
-            f"{dia} — "
-            f"{data.strftime('%d/%m/%Y')}"
-        )
-
-    for item in itens:
-
-        dia_semana = str(
-            item.get(
-                "dia_semana",
-                ""
-            )
-        ).lower().strip()
-
-        if dia_semana == "sab":
-            return f"Sábado — {data_texto}"
-
-        if dia_semana == "seg":
-            return f"Segunda-feira — {data_texto}"
-
-    return str(data_texto)
-
-
-def obter_mes_nome(mes):
-    """
-    Converte YYYY-MM para um nome amigável.
-    """
-
-    nomes = {
-        1: "Janeiro",
-        2: "Fevereiro",
-        3: "Março",
-        4: "Abril",
-        5: "Maio",
-        6: "Junho",
-        7: "Julho",
-        8: "Agosto",
-        9: "Setembro",
-        10: "Outubro",
-        11: "Novembro",
-        12: "Dezembro"
-    }
-
-    try:
-
-        partes = str(
-            mes
-        ).split("-")
-
-        ano = int(partes[0])
-        numero = int(partes[1])
-
-        return (
-            f"{nomes.get(numero, str(numero))} "
-            f"de {ano}"
-        )
-
-    except Exception:
-        return str(mes)
+    return "#1e3a8a"
 
 
 # ============================================================
@@ -508,13 +204,13 @@ if not st.session_state["logged_in"]:
 
     st.markdown(
         """
-        <div class="login-title">
+        <div class="main-title">
 
             <h1>
                 🏛️ Portal de Designações Mecânicas
             </h1>
 
-            <p class="muted" style="font-size:18px;">
+            <p>
                 Congregação Jardim América
             </p>
 
@@ -565,54 +261,72 @@ if not st.session_state["logged_in"]:
                 use_container_width=True
             ):
 
-                if (
-                    not email_login
-                    or not senha_login
-                ):
+                if not email_login:
 
                     st.warning(
-                        "Preencha o e-mail e a palavra-passe."
+                        "Digite o seu e-mail."
                     )
 
-                elif not validar_email(
-                    email_login
-                ):
+                elif not senha_login:
 
                     st.warning(
-                        "Digite um e-mail válido."
+                        "Digite a sua palavra-passe."
                     )
 
                 else:
 
                     try:
 
-                        res = (
+                        # ------------------------------------------------
+                        # PRIMEIRO: PROCURAR O UTILIZADOR PELO E-MAIL
+                        # ------------------------------------------------
+
+                        resultado_usuario = (
                             supabase
                             .table("usuarios")
                             .select(
-                                "id,nome,email,senha,"
-                                "telefone,status,perfil"
+                                "id,nome,email,senha,telefone,status,perfil"
                             )
-                            .eq(
+                            .ilike(
                                 "email",
                                 email_login
-                            )
-                            .eq(
-                                "senha",
-                                senha_login
                             )
                             .execute()
                         )
 
-                        if res.data:
+                        if not resultado_usuario.data:
 
-                            user = res.data[0]
-
-                            status = user.get(
-                                "status"
+                            st.error(
+                                "E-mail ou palavra-passe incorretos."
                             )
 
-                            if status == "aprovado":
+                        else:
+
+                            user = resultado_usuario.data[0]
+
+                            senha_banco = str(
+                                user.get("senha", "")
+                            )
+
+                            senha_digitada = str(
+                                senha_login
+                            )
+
+                            # --------------------------------------------
+                            # CONFERIR SENHA
+                            # --------------------------------------------
+
+                            if senha_banco != senha_digitada:
+
+                                st.error(
+                                    "E-mail ou palavra-passe incorretos."
+                                )
+
+                            # --------------------------------------------
+                            # CONFERIR STATUS
+                            # --------------------------------------------
+
+                            elif user.get("status") == "aprovado":
 
                                 st.session_state[
                                     "logged_in"
@@ -632,12 +346,6 @@ if not st.session_state["logged_in"]:
                                     "irmao"
                                 )
 
-                                st.session_state[
-                                    "user_id"
-                                ] = user.get(
-                                    "id"
-                                )
-
                                 st.success(
                                     f"Bem-vindo, "
                                     f"{user.get('nome', '')}!"
@@ -645,7 +353,7 @@ if not st.session_state["logged_in"]:
 
                                 st.rerun()
 
-                            elif status == "pendente":
+                            elif user.get("status") == "pendente":
 
                                 st.warning(
                                     "⏳ O seu registo ainda está "
@@ -659,16 +367,10 @@ if not st.session_state["logged_in"]:
                                     "não foi aprovado."
                                 )
 
-                        else:
-
-                            st.error(
-                                "E-mail ou palavra-passe incorretos."
-                            )
-
-                    except Exception:
+                    except Exception as err:
 
                         st.error(
-                            "Não foi possível verificar a conta."
+                            f"Erro ao verificar conta: {err}"
                         )
 
 
@@ -684,7 +386,7 @@ if not st.session_state["logged_in"]:
 
             nome_cad = st.text_input(
                 "Nome Completo:"
-            ).strip()
+            )
 
             email_cad = st.text_input(
                 "E-mail:"
@@ -699,11 +401,6 @@ if not st.session_state["logged_in"]:
                 type="password"
             )
 
-            confirmar_senha = st.text_input(
-                "Confirme a Palavra-passe:",
-                type="password"
-            )
-
             if st.button(
                 "Enviar Pedido de Registo",
                 use_container_width=True
@@ -713,32 +410,11 @@ if not st.session_state["logged_in"]:
                     not nome_cad
                     or not email_cad
                     or not senha_cad
-                    or not confirmar_senha
                     or not tel_cad
                 ):
 
                     st.warning(
                         "Preencha todos os campos."
-                    )
-
-                elif not validar_email(
-                    email_cad
-                ):
-
-                    st.warning(
-                        "Digite um e-mail válido."
-                    )
-
-                elif len(senha_cad) < 6:
-
-                    st.warning(
-                        "A palavra-passe deve ter pelo menos 6 caracteres."
-                    )
-
-                elif senha_cad != confirmar_senha:
-
-                    st.warning(
-                        "As palavras-passe não coincidem."
                     )
 
                 else:
@@ -749,7 +425,7 @@ if not st.session_state["logged_in"]:
                             supabase
                             .table("usuarios")
                             .select("id")
-                            .eq(
+                            .ilike(
                                 "email",
                                 email_cad
                             )
@@ -768,7 +444,7 @@ if not st.session_state["logged_in"]:
                                 supabase
                                 .table("usuarios")
                                 .insert({
-                                    "nome": nome_cad,
+                                    "nome": nome_cad.strip(),
                                     "email": email_cad,
                                     "telefone": tel_cad,
                                     "senha": senha_cad,
@@ -783,10 +459,10 @@ if not st.session_state["logged_in"]:
                                 "Aguarde a aprovação."
                             )
 
-                    except Exception:
+                    except Exception as err:
 
                         st.error(
-                            "Não foi possível realizar o registo."
+                            f"Erro ao realizar registo: {err}"
                         )
 
 
@@ -808,15 +484,13 @@ else:
         f"👤 **{st.session_state['user_name']}**"
     )
 
-    perfil_atual = str(
-        st.session_state.get(
-            "user_role",
-            "irmao"
-        )
-    ).upper()
+    perfil_atual = st.session_state.get(
+        "user_role",
+        "irmao"
+    )
 
     st.sidebar.caption(
-        f"Perfil: **{perfil_atual}**"
+        f"Perfil: **{str(perfil_atual).upper()}**"
     )
 
     if st.sidebar.button(
@@ -827,7 +501,6 @@ else:
         st.session_state["logged_in"] = False
         st.session_state["user_name"] = ""
         st.session_state["user_role"] = None
-        st.session_state["user_id"] = None
 
         st.rerun()
 
@@ -848,106 +521,129 @@ else:
         meses_disponiveis = sorted(
             list(
                 set(
-                    str(
-                        item.get("mes")
-                    ).strip()
-                    for item in (
-                        res_meses.data or []
-                    )
+                    str(item["mes"]).strip()
+                    for item in (res_meses.data or [])
                     if item.get("mes")
                 )
-            ),
-            reverse=True
+            )
         )
 
-    except Exception:
+    except Exception as err:
+
+        st.sidebar.error(
+            f"Erro ao buscar meses: {err}"
+        )
 
         meses_disponiveis = []
 
-        st.sidebar.error(
-            "Não foi possível carregar os meses."
-        )
-
 
     # ========================================================
-    # SE NÃO EXISTIREM MESES
+    # SE NÃO HOUVER MESES
     # ========================================================
 
     if not meses_disponiveis:
 
-        st.warning(
-            "Nenhuma escala foi cadastrada no banco de dados."
+        st.sidebar.info(
+            "Nenhum mês possui escala cadastrada."
         )
 
-        if st.session_state["user_role"] == "admin":
+        mes_selecionado = None
 
-            st.info(
-                "Como administrador, utilize "
-                "\"⚙️ Gerir Escalas\" para cadastrar a primeira escala."
-            )
+    else:
 
-        st.stop()
-
-
-    # ========================================================
-    # SELECIONAR MÊS
-    # ========================================================
-
-    mes_selecionado = st.sidebar.selectbox(
-        "📅 Selecionar Mês:",
-        meses_disponiveis,
-        format_func=obter_mes_nome
-    )
+        mes_selecionado = st.sidebar.selectbox(
+            "📅 Selecionar Mês:",
+            meses_disponiveis,
+            index=0
+        )
 
 
     # ========================================================
     # BUSCAR ESCALAS
     # ========================================================
 
-    try:
+    if mes_selecionado:
 
-        res_escala = (
-            supabase
-            .table("escalas")
-            .select(
-                "id,mes,data_texto,dia_semana,funcao,irmao"
+        try:
+
+            mes_consulta = str(
+                mes_selecionado
+            ).strip()
+
+            res_escala = (
+                supabase
+                .table("escalas")
+                .select("*")
+                .eq("mes", mes_consulta)
+                .execute()
             )
-            .eq(
-                "mes",
-                str(
-                    mes_selecionado
-                ).strip()
+
+            dados_escala = (
+                res_escala.data or []
             )
-            .execute()
-        )
 
-        dados_escala = (
-            res_escala.data or []
-        )
+            st.sidebar.success(
+                f"✅ {len(dados_escala)} registros encontrados"
+            )
 
-        dados_escala = ordenar_dados_escala(
-            dados_escala
-        )
+        except Exception as err:
 
-        st.sidebar.success(
-            f"✅ {len(dados_escala)} registros encontrados"
-        )
+            dados_escala = []
 
-    except Exception:
+            st.sidebar.error(
+                f"Erro ao buscar escalas: {err}"
+            )
+
+    else:
 
         dados_escala = []
-
-        st.sidebar.error(
-            "Não foi possível carregar a escala."
-        )
 
 
     # ========================================================
     # ORGANIZAR DATAS
     # ========================================================
 
-    datas_dict = montar_datas(
-        dados_escala
+    datas_dict = {}
+
+    for item in dados_escala:
+
+        dt = item.get(
+            "data_texto",
+            "Data não informada"
+        )
+
+        if dt not in datas_dict:
+
+            datas_dict[dt] = []
+
+        datas_dict[dt].append({
+            "id": item.get("id"),
+            "funcao": item.get(
+                "funcao",
+                ""
+            ),
+            "irmao": item.get(
+                "irmao",
+                ""
+            ),
+            "dia_semana": item.get(
+                "dia_semana",
+                ""
+            ),
+            "mes": item.get(
+                "mes",
+                ""
+            )
+        })
+
+
+    # ========================================================
+    # ORDENAR AS DATAS
+    # ========================================================
+
+    lista_datas = sorted(
+        datas_dict.keys(),
+        key=converter_data
     )
 
 
@@ -955,7 +651,7 @@ else:
     # ABAS
     # ========================================================
 
-    if st.session_state["user_role"] == "admin":
+    if perfil_atual == "admin":
 
         tab1, tab2, tab3, tab4 = st.tabs(
             [
@@ -987,18 +683,40 @@ else:
 
         st.markdown(
             f"""
-            <div class="main-header">
+            <div style="
+                background:linear-gradient(
+                    135deg,
+                    #1e3a8a,
+                    #2563eb
+                );
+                padding:25px;
+                border-radius:15px;
+                margin-bottom:25px;
+                color:white;
+                box-shadow:0 4px 12px
+                rgba(0,0,0,0.15);
+            ">
 
-                <h1>
+                <h2 style="
+                    margin:0;
+                    color:white;
+                ">
                     📋 Designações Mecânicas
-                </h1>
+                </h2>
 
-                <p style="font-size:18px;">
+                <p style="
+                    margin:8px 0 0 0;
+                    font-size:18px;
+                ">
                     Congregação Jardim América
                 </p>
 
-                <p style="font-size:16px; opacity:0.9;">
-                    📅 {escape(obter_mes_nome(mes_selecionado))}
+                <p style="
+                    margin:6px 0 0 0;
+                    font-size:16px;
+                    opacity:0.9;
+                ">
+                    📅 {mes_selecionado or "Nenhum mês"}
                 </p>
 
             </div>
@@ -1014,20 +732,7 @@ else:
                 "no banco de dados para este mês."
             )
 
-
         else:
-
-            # ------------------------------------------------
-            # LISTA DE REUNIÕES JÁ ORDENADA
-            # ------------------------------------------------
-
-            lista_datas = list(
-                datas_dict.keys()
-            )
-
-            # ------------------------------------------------
-            # DUAS COLUNAS
-            # ------------------------------------------------
 
             for i in range(
                 0,
@@ -1035,81 +740,51 @@ else:
                 2
             ):
 
-                col1, col2 = st.columns(
-                    2,
-                    gap="large"
-                )
+                col1, col2 = st.columns(2)
 
-
-                # ============================================
+                # =================================================
                 # PRIMEIRA REUNIÃO
-                # ============================================
+                # =================================================
 
                 dt1 = lista_datas[i]
+
                 itens1 = datas_dict[dt1]
 
-                item_referencia1 = itens1[0]
-
                 cor1 = obter_cor_reuniao(
-                    item_referencia1
+                    itens1[0]
                 )
 
-                icone1 = obter_icone_reuniao(
-                    item_referencia1
-                )
-
-                titulo1 = obter_titulo_reuniao(
-                    dt1,
-                    itens1
+                titulo1 = formatar_data_titulo(
+                    dt1
                 )
 
                 with col1:
 
                     html1 = f"""
-                    <div class="info-card"
+                    <div class="scale-card"
                          style="
-                            border-left:6px solid {cor1};
+                         border-left:6px solid {cor1};
                          ">
 
-                        <div class="meeting-title"
-                             style="
-                                color:{cor1};
-                             ">
-
-                            {icone1} {escape(titulo1)}
-
-                        </div>
+                        <h3 style="
+                            color:{cor1};
+                            margin-bottom:18px;
+                        ">
+                            📅 {titulo1}
+                        </h3>
                     """
 
                     for item in itens1:
 
-                        funcao = escape(
-                            str(
-                                item.get(
-                                    "funcao",
-                                    ""
-                                )
-                            )
-                        )
-
-                        irmao = escape(
-                            str(
-                                item.get(
-                                    "irmao",
-                                    ""
-                                )
-                            )
-                        )
-
                         html1 += f"""
-                        <div class="assignment">
+                        <div class="function">
 
-                            <div class="assignment-function">
-                                {funcao}
+                            <div class="function-name">
+                                {item['funcao']}
                             </div>
 
-                            <div class="assignment-name">
-                                {irmao}
+                            <div class="brother-name">
+                                {item['irmao']}
                             </div>
 
                         </div>
@@ -1125,80 +800,51 @@ else:
                     )
 
 
-                # ============================================
+                # =================================================
                 # SEGUNDA REUNIÃO
-                # ============================================
+                # =================================================
 
                 if i + 1 < len(lista_datas):
 
                     dt2 = lista_datas[i + 1]
 
-                    itens2 = datas_dict[
-                        dt2
-                    ]
-
-                    item_referencia2 = itens2[0]
+                    itens2 = datas_dict[dt2]
 
                     cor2 = obter_cor_reuniao(
-                        item_referencia2
+                        itens2[0]
                     )
 
-                    icone2 = obter_icone_reuniao(
-                        item_referencia2
-                    )
-
-                    titulo2 = obter_titulo_reuniao(
-                        dt2,
-                        itens2
+                    titulo2 = formatar_data_titulo(
+                        dt2
                     )
 
                     with col2:
 
                         html2 = f"""
-                        <div class="info-card"
+                        <div class="scale-card"
                              style="
-                                border-left:6px solid {cor2};
+                             border-left:6px solid {cor2};
                              ">
 
-                            <div class="meeting-title"
-                                 style="
-                                    color:{cor2};
-                                 ">
-
-                                {icone2} {escape(titulo2)}
-
-                            </div>
+                            <h3 style="
+                                color:{cor2};
+                                margin-bottom:18px;
+                            ">
+                                📅 {titulo2}
+                            </h3>
                         """
 
                         for item in itens2:
 
-                            funcao = escape(
-                                str(
-                                    item.get(
-                                        "funcao",
-                                        ""
-                                    )
-                                )
-                            )
-
-                            irmao = escape(
-                                str(
-                                    item.get(
-                                        "irmao",
-                                        ""
-                                    )
-                                )
-                            )
-
                             html2 += f"""
-                            <div class="assignment">
+                            <div class="function">
 
-                                <div class="assignment-function">
-                                    {funcao}
+                                <div class="function-name">
+                                    {item['funcao']}
                                 </div>
 
-                                <div class="assignment-name">
-                                    {irmao}
+                                <div class="brother-name">
+                                    {item['irmao']}
                                 </div>
 
                             </div>
@@ -1221,26 +867,21 @@ else:
     with tab2:
 
         st.subheader(
-            "🔍 Procurar por Irmão"
-        )
-
-        st.caption(
-            "Consulte as designações cadastradas para o mês selecionado."
+            "🔍 Minhas Designações"
         )
 
         busca = st.text_input(
             "Digite o nome para consultar:",
-            value=st.session_state["user_name"],
-            placeholder="Ex.: João Silva"
-        ).strip()
+            value=st.session_state["user_name"]
+        )
 
         if busca:
 
-            resultados = []
+            encontrado = False
 
-            for dt, itens in datas_dict.items():
+            for dt in lista_datas:
 
-                for item in itens:
+                for item in datas_dict[dt]:
 
                     nome_irmao = str(
                         item.get(
@@ -1249,76 +890,17 @@ else:
                         )
                     )
 
-                    if (
-                        busca.lower()
-                        in nome_irmao.lower()
-                    ):
+                    if busca.lower() in nome_irmao.lower():
 
-                        resultados.append(
-                            {
-                                "data": dt,
-                                "funcao": item.get(
-                                    "funcao",
-                                    ""
-                                ),
-                                "irmao": nome_irmao
-                            }
+                        st.success(
+                            f"📅 **{formatar_data_titulo(dt)}** — "
+                            f"**{item['funcao']}:** "
+                            f"{item['irmao']}"
                         )
 
+                        encontrado = True
 
-            if resultados:
-
-                st.success(
-                    f"Encontradas "
-                    f"{len(resultados)} designação(ões)."
-                )
-
-                for resultado in resultados:
-
-                    data = resultado[
-                        "data"
-                    ]
-
-                    funcao = resultado[
-                        "funcao"
-                    ]
-
-                    irmao = resultado[
-                        "irmao"
-                    ]
-
-                    st.markdown(
-                        f"""
-                        <div class="info-card">
-
-                            <div style="
-                                font-size:17px;
-                                font-weight:700;
-                                color:#1e3a8a;
-                            ">
-                                📅 {escape(str(data))}
-                            </div>
-
-                            <div style="
-                                margin-top:8px;
-                                font-weight:600;
-                            ">
-                                {escape(str(funcao))}
-                            </div>
-
-                            <div style="
-                                margin-top:4px;
-                                color:#374151;
-                            ">
-                                👤 {escape(str(irmao))}
-                            </div>
-
-                        </div>
-                        """,
-                        unsafe_allow_html=True
-                    )
-
-            else:
+            if not encontrado:
 
                 st.warning(
                     "Nenhuma designação localizada "
@@ -1336,57 +918,24 @@ else:
             "📄 Documento Oficial para Impressão"
         )
 
-        st.caption(
-            f"Mês selecionado: "
-            f"**{obter_mes_nome(mes_selecionado)}**"
-        )
-
-        # ----------------------------------------------------
-        # Procurar PDF correspondente ao mês
-        # ----------------------------------------------------
-
-        nomes_pdf = []
-
-        mes_nome = obter_mes_nome(
-            mes_selecionado
-        )
-
-        nomes_pdf.append(
-            f"Designações_Mecânicas_-_{mes_nome}.pdf"
-        )
-
-        nomes_pdf.append(
-            f"Designacoes_Mecanicas_-_{mes_nome}.pdf"
-        )
-
-        nomes_pdf.append(
+        pdf_path = (
             "Designações_Mecânicas_-_Outubro_2026.pdf"
         )
 
-        pdf_encontrado = None
-
-        for nome_pdf in nomes_pdf:
-
-            if os.path.exists(nome_pdf):
-
-                pdf_encontrado = nome_pdf
-                break
-
-
-        if pdf_encontrado:
+        if os.path.exists(pdf_path):
 
             with open(
-                pdf_encontrado,
+                pdf_path,
                 "rb"
-            ) as arquivo_pdf:
+            ) as f:
 
                 st.download_button(
                     label=(
                         "🖨️ Descarregar / "
                         "Imprimir PDF Oficial"
                     ),
-                    data=arquivo_pdf.read(),
-                    file_name=pdf_encontrado,
+                    data=f.read(),
+                    file_name=pdf_path,
                     mime="application/pdf",
                     use_container_width=True,
                     type="primary"
@@ -1395,7 +944,7 @@ else:
         else:
 
             st.info(
-                "O PDF oficial deste mês não foi encontrado "
+                "O PDF oficial não foi encontrado "
                 "no projeto."
             )
 
@@ -1409,51 +958,29 @@ else:
         with tab4:
 
             st.subheader(
-                "⚙️ Gerir Escalas"
-            )
-
-            st.markdown(
-                "### ➕ Cadastrar Nova Designação"
+                "⚙️ Cadastrar Nova Designação"
             )
 
             with st.form(
                 "form_nova_designacao"
             ):
 
-                c_mes, c_data = st.columns(
-                    2
-                )
-
-                # --------------------------------------------
-                # MÊS
-                # --------------------------------------------
+                c_mes, c_dia = st.columns(2)
 
                 mes_input = c_mes.text_input(
                     "Mês (Ano-Mês):",
-                    value=mes_selecionado,
-                    help="Exemplo: 2026-10"
-                ).strip()
-
-
-                # --------------------------------------------
-                # DATA
-                # --------------------------------------------
-
-                data_texto_input = c_data.text_input(
-                    "Data da Reunião:",
-                    placeholder="Ex.: Segunda-feira — 02/11/2026",
-                    help="Use uma data no formato DD/MM/AAAA."
-                ).strip()
-
-
-                c_func, c_irm = st.columns(
-                    2
+                    value=(
+                        mes_selecionado
+                        or "2026-11"
+                    )
                 )
 
+                data_texto_input = c_dia.text_input(
+                    "Data Formatada:",
+                    value="Segunda-feira — 02/11/2026"
+                )
 
-                # --------------------------------------------
-                # FUNÇÃO
-                # --------------------------------------------
+                c_func, c_irm = st.columns(2)
 
                 funcao_input = c_func.selectbox(
                     "Função:",
@@ -1467,36 +994,18 @@ else:
                     ]
                 )
 
-
-                # --------------------------------------------
-                # IRMÃO
-                # --------------------------------------------
-
                 irmao_input = c_irm.text_input(
                     "Nome do Irmão:"
-                ).strip()
-
-
-                # --------------------------------------------
-                # TIPO DE REUNIÃO
-                # --------------------------------------------
+                )
 
                 dia_sem_input = st.selectbox(
                     "Tipo de Reunião:",
-                    [
-                        "seg",
-                        "sab"
-                    ],
+                    ["seg", "sab"],
                     format_func=lambda x:
                         "Segunda-feira"
                         if x == "seg"
                         else "Sábado"
                 )
-
-
-                # --------------------------------------------
-                # BOTÃO
-                # --------------------------------------------
 
                 enviar = st.form_submit_button(
                     "➕ Adicionar à Escala",
@@ -1504,255 +1013,248 @@ else:
                     use_container_width=True
                 )
 
-
                 if enviar:
 
                     if (
-                        not mes_input
-                        or not data_texto_input
-                        or not irmao_input
+                        not mes_input.strip()
+                        or not data_texto_input.strip()
+                        or not irmao_input.strip()
                     ):
 
                         st.warning(
                             "Preencha todos os campos."
                         )
 
-                    elif not re.match(
-                        r"^\d{4}-\d{2}$",
-                        mes_input
-                    ):
-
-                        st.warning(
-                            "O mês deve estar no formato YYYY-MM. "
-                            "Exemplo: 2026-11."
-                        )
-
-                    elif converter_data(
-                        data_texto_input
-                    ) is None:
-
-                        st.warning(
-                            "A data deve conter uma data válida "
-                            "no formato DD/MM/AAAA."
-                        )
-
                     else:
 
                         try:
 
-                            # --------------------------------
-                            # CONFIRMAR DIA DA SEMANA
-                            # --------------------------------
+                            # ------------------------------------
+                            # VERIFICAR DUPLICAÇÃO
+                            # ------------------------------------
 
-                            data_real = converter_data(
-                                data_texto_input
-                            )
-
-                            dia_calculado = (
-                                "sab"
-                                if data_real.weekday() == 5
-                                else
-                                "seg"
-                                if data_real.weekday() == 0
-                                else
-                                None
-                            )
-
-                            if dia_calculado is None:
-
-                                st.warning(
-                                    "A data informada não é "
-                                    "uma segunda-feira ou sábado."
+                            duplicado = (
+                                supabase
+                                .table("escalas")
+                                .select("id")
+                                .eq(
+                                    "mes",
+                                    mes_input.strip()
                                 )
+                                .eq(
+                                    "data_texto",
+                                    data_texto_input.strip()
+                                )
+                                .eq(
+                                    "funcao",
+                                    funcao_input
+                                )
+                                .eq(
+                                    "irmao",
+                                    irmao_input.strip()
+                                )
+                                .execute()
+                            )
 
-                            elif (
-                                dia_calculado
-                                != dia_sem_input
-                            ):
+                            if duplicado.data:
 
                                 st.warning(
-                                    "O tipo de reunião não corresponde "
-                                    "ao dia informado."
+                                    "Essa designação já "
+                                    "está cadastrada."
                                 )
 
                             else:
 
-                                data_formatada = (
-                                    normalizar_data_texto(
-                                        data_texto_input,
-                                        dia_sem_input
-                                    )
-                                )
-
-                                # ----------------------------
-                                # VERIFICAR DUPLICIDADE
-                                # ----------------------------
-
-                                duplicado = (
+                                (
                                     supabase
                                     .table("escalas")
-                                    .select("id")
-                                    .eq(
-                                        "mes",
-                                        mes_input
-                                    )
-                                    .eq(
-                                        "data_texto",
-                                        data_formatada
-                                    )
-                                    .eq(
-                                        "funcao",
-                                        funcao_input
-                                    )
-                                    .eq(
-                                        "irmao",
-                                        irmao_input
-                                    )
+                                    .insert({
+                                        "mes": mes_input.strip(),
+                                        "data_texto": data_texto_input.strip(),
+                                        "dia_semana": dia_sem_input,
+                                        "funcao": funcao_input,
+                                        "irmao": irmao_input.strip()
+                                    })
                                     .execute()
                                 )
 
-                                if duplicado.data:
+                                st.success(
+                                    "✅ Designação adicionada!"
+                                )
 
-                                    st.warning(
-                                        "Essa mesma designação "
-                                        "já está cadastrada."
-                                    )
+                                st.rerun()
 
-                                else:
-
-                                    (
-                                        supabase
-                                        .table("escalas")
-                                        .insert({
-                                            "mes": mes_input,
-                                            "data_texto": data_formatada,
-                                            "dia_semana": dia_sem_input,
-                                            "funcao": funcao_input,
-                                            "irmao": irmao_input
-                                        })
-                                        .execute()
-                                    )
-
-                                    st.success(
-                                        "✅ Designação adicionada!"
-                                    )
-
-                                    st.rerun()
-
-                        except Exception:
+                        except Exception as err:
 
                             st.error(
-                                "Não foi possível adicionar "
-                                "a designação."
+                                f"Erro ao adicionar "
+                                f"designação: {err}"
                             )
 
 
-            # =================================================
-            # GERENCIAR REGISTROS EXISTENTES
-            # =================================================
+            # ====================================================
+            # LISTA PARA EDITAR / EXCLUIR
+            # ====================================================
 
             st.divider()
 
-            st.markdown(
-                "### 📋 Designações cadastradas neste mês"
+            st.subheader(
+                "📝 Gerir Designações Existentes"
             )
 
             if not dados_escala:
 
                 st.info(
-                    "Nenhuma designação cadastrada."
+                    "Não existem designações "
+                    "neste mês."
                 )
 
             else:
 
-                for item in dados_escala:
-
-                    registro_id = item.get(
-                        "id"
+                for item in sorted(
+                    dados_escala,
+                    key=lambda x: converter_data(
+                        x.get("data_texto", "")
                     )
+                ):
 
-                    data_texto = str(
-                        item.get(
-                            "data_texto",
-                            ""
-                        )
-                    )
+                    item_id = item.get("id")
 
-                    funcao = str(
-                        item.get(
-                            "funcao",
-                            ""
-                        )
-                    )
+                    if item_id is None:
+                        continue
 
-                    irmao = str(
-                        item.get(
-                            "irmao",
-                            ""
-                        )
+                    titulo = (
+                        f"{formatar_data_titulo(item.get('data_texto', ''))} "
+                        f"— {item.get('funcao', '')} "
+                        f"— {item.get('irmao', '')}"
                     )
 
                     with st.expander(
-                        f"📅 {data_texto} — "
-                        f"{funcao} — "
-                        f"{irmao}"
+                        titulo
                     ):
 
-                        col_edit, col_delete = st.columns(
-                            [4, 1]
+                        c1, c2 = st.columns(2)
+
+                        novo_nome = c1.text_input(
+                            "Nome do Irmão:",
+                            value=str(
+                                item.get(
+                                    "irmao",
+                                    ""
+                                )
+                            ),
+                            key=f"nome_{item_id}"
                         )
 
-                        novo_nome = col_edit.text_input(
-                            "Irmão:",
-                            value=irmao,
-                            key=f"nome_{registro_id}"
+                        nova_funcao = c2.selectbox(
+                            "Função:",
+                            [
+                                "🗣️ Oração Inicial",
+                                "🗣️ Oração Final",
+                                "📖 Leitor A Sentinela",
+                                "🎤 Microfones",
+                                "🚪 Ind. Entrada",
+                                "🏛️ Ind. Auditório"
+                            ],
+                            index=(
+                                [
+                                    "🗣️ Oração Inicial",
+                                    "🗣️ Oração Final",
+                                    "📖 Leitor A Sentinela",
+                                    "🎤 Microfones",
+                                    "🚪 Ind. Entrada",
+                                    "🏛️ Ind. Auditório"
+                                ].index(
+                                    item.get(
+                                        "funcao",
+                                        "🗣️ Oração Inicial"
+                                    )
+                                )
+                                if item.get("funcao")
+                                in [
+                                    "🗣️ Oração Inicial",
+                                    "🗣️ Oração Final",
+                                    "📖 Leitor A Sentinela",
+                                    "🎤 Microfones",
+                                    "🚪 Ind. Entrada",
+                                    "🏛️ Ind. Auditório"
+                                ]
+                                else 0
+                            ),
+                            key=f"funcao_{item_id}"
                         )
 
-                        if col_edit.button(
-                            "💾 Salvar alteração",
-                            key=f"salvar_{registro_id}",
+                        c3, c4 = st.columns(2)
+
+                        nova_data = c3.text_input(
+                            "Data:",
+                            value=str(
+                                item.get(
+                                    "data_texto",
+                                    ""
+                                )
+                            ),
+                            key=f"data_{item_id}"
+                        )
+
+                        novo_dia = c4.selectbox(
+                            "Tipo de Reunião:",
+                            ["seg", "sab"],
+                            index=(
+                                0
+                                if item.get(
+                                    "dia_semana"
+                                ) != "sab"
+                                else 1
+                            ),
+                            format_func=lambda x:
+                                "Segunda-feira"
+                                if x == "seg"
+                                else "Sábado",
+                            key=f"dia_{item_id}"
+                        )
+
+                        b1, b2 = st.columns(2)
+
+                        if b1.button(
+                            "💾 Guardar Alterações",
+                            key=f"save_{item_id}",
                             use_container_width=True
                         ):
 
-                            if not novo_nome.strip():
+                            try:
 
-                                st.warning(
-                                    "O nome não pode ficar vazio."
+                                (
+                                    supabase
+                                    .table("escalas")
+                                    .update({
+                                        "irmao": novo_nome.strip(),
+                                        "funcao": nova_funcao,
+                                        "data_texto": nova_data.strip(),
+                                        "dia_semana": novo_dia
+                                    })
+                                    .eq(
+                                        "id",
+                                        item_id
+                                    )
+                                    .execute()
                                 )
 
-                            else:
+                                st.success(
+                                    "✅ Alterações guardadas."
+                                )
 
-                                try:
+                                st.rerun()
 
-                                    (
-                                        supabase
-                                        .table("escalas")
-                                        .update({
-                                            "irmao": novo_nome.strip()
-                                        })
-                                        .eq(
-                                            "id",
-                                            registro_id
-                                        )
-                                        .execute()
-                                    )
+                            except Exception as err:
 
-                                    st.success(
-                                        "Alteração salva."
-                                    )
+                                st.error(
+                                    f"Erro ao atualizar: {err}"
+                                )
 
-                                    st.rerun()
-
-                                except Exception:
-
-                                    st.error(
-                                        "Não foi possível salvar a alteração."
-                                    )
-
-
-                        if col_delete.button(
+                        if b2.button(
                             "🗑️ Excluir",
-                            key=f"excluir_{registro_id}",
+                            key=f"delete_{item_id}",
                             use_container_width=True
                         ):
 
@@ -1764,33 +1266,31 @@ else:
                                     .delete()
                                     .eq(
                                         "id",
-                                        registro_id
+                                        item_id
                                     )
                                     .execute()
                                 )
 
                                 st.success(
-                                    "Designação excluída."
+                                    "✅ Designação excluída."
                                 )
 
                                 st.rerun()
 
-                            except Exception:
+                            except Exception as err:
 
                                 st.error(
-                                    "Não foi possível excluir a designação."
+                                    f"Erro ao excluir: {err}"
                                 )
 
 
     # ========================================================
-    # PAINEL DO ADMIN — APROVAR UTILIZADORES
+    # PAINEL DO ADMIN
     # ========================================================
 
-    if st.session_state["user_role"] == "admin":
+    if perfil_atual == "admin":
 
-        st.sidebar.markdown(
-            "---"
-        )
+        st.sidebar.markdown("---")
 
         st.sidebar.subheader(
             "⚙️ Aprovar Utilizadores"
@@ -1801,9 +1301,7 @@ else:
             pendentes = (
                 supabase
                 .table("usuarios")
-                .select(
-                    "id,nome,email,telefone,status,perfil"
-                )
+                .select("*")
                 .eq(
                     "status",
                     "pendente"
@@ -1811,30 +1309,18 @@ else:
                 .execute()
             )
 
-            usuarios_pendentes = (
-                pendentes.data or []
-            )
+            if pendentes.data:
 
-            if usuarios_pendentes:
-
-                for u in usuarios_pendentes:
+                for u in pendentes.data:
 
                     st.sidebar.write(
-                        f"👤 **{u.get('nome', '')}**"
-                    )
-
-                    st.sidebar.caption(
-                        f"📧 {u.get('email', '')}"
-                    )
-
-                    st.sidebar.caption(
-                        f"📱 {u.get('telefone', 'Sem telefone')}"
+                        f"👤 **{u.get('nome', '')}** "
+                        f"({u.get('telefone', 'Sem tel')})"
                     )
 
                     c_ap, c_rec = (
                         st.sidebar.columns(2)
                     )
-
 
                     # ----------------------------------------
                     # APROVAR
@@ -1842,33 +1328,23 @@ else:
 
                     if c_ap.button(
                         "✅",
-                        key=f"ap_{u['id']}",
-                        help="Aprovar utilizador"
+                        key=f"ap_{u['id']}"
                     ):
 
-                        try:
-
-                            (
-                                supabase
-                                .table("usuarios")
-                                .update({
-                                    "status": "aprovado"
-                                })
-                                .eq(
-                                    "id",
-                                    u["id"]
-                                )
-                                .execute()
+                        (
+                            supabase
+                            .table("usuarios")
+                            .update({
+                                "status": "aprovado"
+                            })
+                            .eq(
+                                "id",
+                                u["id"]
                             )
+                            .execute()
+                        )
 
-                            st.rerun()
-
-                        except Exception:
-
-                            st.sidebar.error(
-                                "Não foi possível aprovar."
-                            )
-
+                        st.rerun()
 
                     # ----------------------------------------
                     # RECUSAR
@@ -1876,36 +1352,23 @@ else:
 
                     if c_rec.button(
                         "❌",
-                        key=f"rec_{u['id']}",
-                        help="Recusar utilizador"
+                        key=f"rec_{u['id']}"
                     ):
 
-                        try:
-
-                            (
-                                supabase
-                                .table("usuarios")
-                                .update({
-                                    "status": "recusado"
-                                })
-                                .eq(
-                                    "id",
-                                    u["id"]
-                                )
-                                .execute()
+                        (
+                            supabase
+                            .table("usuarios")
+                            .update({
+                                "status": "recusado"
+                            })
+                            .eq(
+                                "id",
+                                u["id"]
                             )
+                            .execute()
+                        )
 
-                            st.rerun()
-
-                        except Exception:
-
-                            st.sidebar.error(
-                                "Não foi possível recusar."
-                            )
-
-                    st.sidebar.markdown(
-                        "---"
-                    )
+                        st.rerun()
 
             else:
 
@@ -1913,8 +1376,8 @@ else:
                     "Nenhum utilizador pendente."
                 )
 
-        except Exception:
+        except Exception as err:
 
             st.sidebar.error(
-                "Não foi possível carregar os utilizadores pendentes."
+                f"Erro ao carregar utilizadores: {err}"
             )
