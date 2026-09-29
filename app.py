@@ -683,3 +683,4 @@ else:
 
             st.sidebar.error(
                 f"Erro ao carregar utilizadores: {err}"
+            )
