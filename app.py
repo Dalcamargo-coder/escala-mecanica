@@ -112,31 +112,79 @@ else:
         st.session_state["user_role"] = None
         st.rerun()
 
-    # Estrutura de Páginas do Portal
+    # Estrutura de Páginas do Portal (Sincronizada com o PDF Oficial de Outubro 2026)
     semanas = [
         {
             "data_seg": "Segunda-feira — 05/10/2026",
-            "seg": {"🗣️ Oração Inicial": "Marcel Silvério", "🗣️ Oração Final": "Adalberto Camargo", "🎤 Microfones": "Adalberto Camargo / Laércio Paulino", "🚪 Ind. Entrada": "Laércio Paulino", "🏛️ Ind. Auditório": "Marcel Silvério"},
+            "seg": {
+                "🗣️ Oração Inicial": "Lucas Valler",
+                "🗣️ Oração Final": "Adriano Carbinatto",
+                "🎤 Microfones": "Ricardo Maciel / Jamenson Lisboa",
+                "🚪 Ind. Entrada": "Adalberto Camargo",
+                "🏛️ Ind. Auditório": "Laércio Paulino"
+            },
             "data_sab": "Sábado — 10/10/2026",
-            "sab": {"🗣️ Oração Final": "Gabriel Pereira", "📖 Leitor A Sentinela": "Jamenson Lisboa", "🎤 Microfones": "Gabriel Pereira / Jairo Damasceno", "🚪 Ind. Entrada": "Jairo Damasceno", "🏛️ Ind. Auditório": "Ricardo Maciel"}
+            "sab": {
+                "🗣️ Oração Final": "Guerino Bastelli",
+                "📖 Leitor A Sentinela": "Jamenson Lisboa",
+                "🎤 Microfones": "Gabriel Carbinatto / Gabriel Pereira",
+                "🚪 Ind. Entrada": "Uilson Lisboa",
+                "🏛️ Ind. Auditório": "Jairo Damasceno"
+            }
         },
         {
             "data_seg": "Segunda-feira — 12/10/2026",
-            "seg": {"🗣️ Oração Inicial": "Ueldson Lisboa", "🗣️ Oração Final": "Uilson Lisboa", "🎤 Microfones": "Ueldson Lisboa / Uilson Lisboa", "🚪 Ind. Entrada": "Marcio Silva", "🏛️ Ind. Auditório": "Enio Gomes"},
+            "seg": {
+                "🗣️ Oração Inicial": "Laércio Paulino",
+                "🗣️ Oração Final": "Jorge Ramos",
+                "🎤 Microfones": "Ueldson Lisboa / Marcio Silva",
+                "🚪 Ind. Entrada": "Lucas Carbinatto",
+                "🏛️ Ind. Auditório": "Enio Gomes"
+            },
             "data_sab": "Sábado — 17/10/2026",
-            "sab": {"🗣️ Oração Final": "Marcelo Carrera", "📖 Leitor A Sentinela": "Renê Mordente", "🎤 Microfones": "Marcelo Carrera / Samuel Schnetes", "🚪 Ind. Entrada": "Samuel Schnetes", "🏛️ Ind. Auditório": "Gesaías Vencato"}
+            "sab": {
+                "🗣️ Oração Final": "Uilson Lisboa",
+                "📖 Leitor A Sentinela": "Renê Mordente",
+                "🎤 Microfones": "Ricardo Maciel / Jamenson Lisboa",
+                "🚪 Ind. Entrada": "Jairo Damasceno",
+                "🏛️ Ind. Auditório": "Adalberto Camargo"
+            }
         },
         {
             "data_seg": "Segunda-feira — 19/10/2026",
-            "seg": {"🗣️ Oração Inicial": "Jairo Damasceno", "🗣️ Oração Final": "Ricardo Maciel", "🎤 Microfones": "Jairo Damasceno / Ricardo Maciel", "🚪 Ind. Entrada": "Adalberto Camargo", "🏛️ Ind. Auditório": "Laércio Paulino"},
+            "seg": {
+                "🗣️ Oração Inicial": "Gesaías Vencato",
+                "🗣️ Oração Final": "Delaércio Carneiro",
+                "🎤 Microfones": "Gabriel Pereira / Marcio Silva",
+                "🚪 Ind. Entrada": "Marcelo Carrera",
+                "🏛️ Ind. Auditório": "Rogério Balista"
+            },
             "data_sab": "Sábado — 24/10/2026",
-            "sab": {"🗣️ Oração Final": "Gesaías Vencato", "📖 Leitor A Sentinela": "Lucas Carbinatto", "🎤 Microfones": "Gesaías Vencato / Gabriel Carbinatto", "🚪 Ind. Entrada": "Gabriel Carbinatto", "🏛️ Ind. Auditório": "Samuel Schnetes"}
+            "sab": {
+                "🗣️ Oração Final": "Adalberto Camargo",
+                "📖 Leitor A Sentinela": "Lucas Carbinatto",
+                "🎤 Microfones": "Ueldson Lisboa / Jairo Damasceno",
+                "🚪 Ind. Entrada": "Enio Gomes",
+                "🏛️ Ind. Auditório": "Marcel Silvério"
+            }
         },
         {
             "data_seg": "Segunda-feira — 26/10/2026",
-            "seg": {"🗣️ Oração Inicial": "Enio Gomes", "🗣️ Oração Final": "Marcio Silva", "🎤 Microfones": "Enio Gomes / Marcio Silva", "🚪 Ind. Entrada": "Marcel Silvério", "🏛️ Ind. Auditório": "Adalberto Camargo"},
+            "seg": {
+                "🗣️ Oração Inicial": "Renê Mordente",
+                "🗣️ Oração Final": "Samuel Schnetes",
+                "🎤 Microfones": "Ricardo Maciel / Gabriel Pereira",
+                "🚪 Ind. Entrada": "Uilson Lisboa",
+                "🏛️ Ind. Auditório": "Jorge Ramos"
+            },
             "data_sab": "Sábado — 31/10/2026",
-            "sab": {"🗣️ Oração Final": "Gabriel Carbinatto", "📖 Leitor A Sentinela": "Lucas Valler", "🎤 Microfones": "Gabriel Carbinatto / Samuel Schnetes", "🚪 Ind. Entrada": "Samuel Schnetes", "🏛️ Ind. Auditório": "Gesaías Vencato"}
+            "sab": {
+                "🗣️ Oração Final": "Lucas Carbinatto",
+                "📖 Leitor A Sentinela": "Lucas Valler",
+                "🎤 Microfones": "Marcio Silva / Jamenson Lisboa",
+                "🚪 Ind. Entrada": "Adalberto Camargo",
+                "🏛️ Ind. Auditório": "Adriano Carbinatto"
+            }
         }
     ]
 
