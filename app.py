@@ -330,39 +330,32 @@ except Exception as err:
 # BUSCAR DADOS DA ESCALA
 # ========================================================
 
+try:
 
-    # ========================================================
-    # BUSCAR DADOS DA ESCALA
-    # ========================================================
+    mes_consulta = str(mes_selecionado).strip()
 
-    try:
+    res_escala = (
+        supabase
+        .table("escalas")
+        .select("*")
+        .eq("mes", mes_consulta)
+        .execute()
+    )
 
-        res_escala = (
-            supabase
-            .table("escalas")
-            .select("*")
-            .eq("mes", mes_selecionado)
-            .execute()
-        )
+    dados_escala = res_escala.data or []
 
-        dados_escala = (
-            res_escala.data
-            if res_escala.data
-            else []
-        )
+    st.sidebar.success(
+        f"✅ {len(dados_escala)} escalas encontradas"
+    )
 
-        # Mostrar quantas escalas foram encontradas
-        st.sidebar.success(
-            f"✅ {len(dados_escala)} escalas encontradas"
-        )
+except Exception as err:
 
-    except Exception as err:
+    dados_escala = []
 
-        dados_escala = []
+    st.error(
+        f"❌ Erro ao buscar escalas no Supabase: {err}"
+    )
 
-        st.error(
-            f"❌ Erro ao buscar escalas no Supabase: {err}"
-        )
 
     # ========================================================
     # ORGANIZAR DATAS
