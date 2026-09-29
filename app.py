@@ -29,11 +29,9 @@ try:
     )
 
 except Exception as err:
-
     st.error(
         f"Erro ao conectar ao banco de dados: {err}"
     )
-
     st.stop()
 
 
@@ -142,7 +140,7 @@ if not st.session_state["logged_in"]:
                 "Palavra-passe:",
                 type="password",
                 key="login_senha"
-            )
+            ).strip()
 
             if st.button(
                 "Entrar no Portal",
@@ -160,16 +158,12 @@ if not st.session_state["logged_in"]:
 
                     try:
 
-                        # ------------------------------------------------
-                        # LOGIN ORIGINAL — NÃO ALTERAR
-                        # ------------------------------------------------
-
+                        # Buscar apenas pelo e-mail para validar corretamente
                         res = (
                             supabase
                             .table("usuarios")
                             .select("*")
                             .eq("email", email_login)
-                            .eq("senha", senha_login)
                             .execute()
                         )
 
@@ -177,36 +171,44 @@ if not st.session_state["logged_in"]:
 
                             user = res.data[0]
 
-                            if user.get("status") == "aprovado":
+                            # Verificar se a senha corresponde
+                            if user.get("senha") == senha_login:
 
-                                st.session_state["logged_in"] = True
+                                if user.get("status") == "aprovado":
 
-                                st.session_state["user_name"] = (
-                                    user["nome"]
-                                )
+                                    st.session_state["logged_in"] = True
 
-                                st.session_state["user_role"] = (
-                                    user["perfil"]
-                                )
+                                    st.session_state["user_name"] = (
+                                        user["nome"]
+                                    )
 
-                                st.success(
-                                    f"Bem-vindo, {user['nome']}!"
-                                )
+                                    st.session_state["user_role"] = (
+                                        user["perfil"]
+                                    )
 
-                                st.rerun()
+                                    st.success(
+                                        f"Bem-vindo, {user['nome']}!"
+                                    )
 
-                            elif user.get("status") == "pendente":
+                                    st.rerun()
 
-                                st.warning(
-                                    "⏳ O seu registo ainda está "
-                                    "pendente de autorização."
-                                )
+                                elif user.get("status") == "pendente":
+
+                                    st.warning(
+                                        "⏳ O seu registo ainda está "
+                                        "pendente de autorização."
+                                    )
+
+                                else:
+
+                                    st.error(
+                                        "❌ O seu pedido de acesso "
+                                        "não foi aprovado."
+                                    )
 
                             else:
-
                                 st.error(
-                                    "❌ O seu pedido de acesso "
-                                    "não foi aprovado."
+                                    "E-mail ou palavra-passe incorretos."
                                 )
 
                         else:
@@ -247,7 +249,7 @@ if not st.session_state["logged_in"]:
             senha_cad = st.text_input(
                 "Crie uma Palavra-passe:",
                 type="password"
-            )
+            ).strip()
 
             if st.button(
                 "Enviar Pedido de Registo",
@@ -369,7 +371,6 @@ else:
             if mes and mes not in meses:
                 meses.append(mes)
 
-        # Ordenar meses
         meses = sorted(meses)
 
     except Exception as err:
@@ -381,10 +382,6 @@ else:
         meses = []
 
 
-    # ========================================================
-    # SE NÃO HOUVER MESES
-    # ========================================================
-
     if not meses:
 
         st.warning(
@@ -393,10 +390,6 @@ else:
 
         st.stop()
 
-
-    # ========================================================
-    # ESCOLHER MÊS
-    # ========================================================
 
     nomes_meses = {
         "01": "Janeiro",
@@ -437,10 +430,6 @@ else:
     )
 
 
-    # ========================================================
-    # CARREGAR ESCALA DO MÊS
-    # ========================================================
-
     try:
 
         res = (
@@ -462,10 +451,6 @@ else:
         registros = []
 
 
-    # ========================================================
-    # ORGANIZAR DADOS
-    # ========================================================
-
     datas_dict = {}
 
     for item in registros:
@@ -481,10 +466,6 @@ else:
         datas_dict[data].append(item)
 
 
-    # ========================================================
-    # FUNÇÃO PARA CONVERTER DATA
-    # ========================================================
-
     def data_para_datetime(data_texto):
 
         try:
@@ -499,19 +480,11 @@ else:
             return datetime.max
 
 
-    # ========================================================
-    # ORDENAÇÃO CRONOLÓGICA
-    # ========================================================
-
     lista_datas = sorted(
         datas_dict.keys(),
         key=data_para_datetime
     )
 
-
-    # ========================================================
-    # TÍTULO PRINCIPAL
-    # ========================================================
 
     st.markdown(
         f"""
@@ -557,10 +530,6 @@ else:
     )
 
 
-    # ========================================================
-    # ABAS
-    # ========================================================
-
     if st.session_state["user_role"] == "admin":
 
         tab1, tab2, tab3, tab4 = st.tabs(
@@ -585,10 +554,6 @@ else:
         tab4 = None
 
 
-    # ========================================================
-    # ABA 1 — ESCALA DO MÊS
-    # ========================================================
-
     with tab1:
 
         if not datas_dict:
@@ -600,10 +565,6 @@ else:
 
         else:
 
-            # ------------------------------------------------
-            # A LISTA JÁ ESTÁ ORDENADA POR DATA
-            # ------------------------------------------------
-
             for i in range(
                 0,
                 len(lista_datas),
@@ -612,18 +573,9 @@ else:
 
                 col1, col2 = st.columns(2)
 
-
-                # ============================================
-                # PRIMEIRA REUNIÃO
-                # ============================================
-
                 dt1 = lista_datas[i]
 
                 with col1:
-
-                    # ----------------------------------------
-                    # DATA E DIA DA SEMANA
-                    # ----------------------------------------
 
                     try:
 
@@ -650,7 +602,6 @@ else:
 
                         dia_semana = ""
 
-
                     html1 = f"""
                     <div style="
                         background:#ffffff;
@@ -671,7 +622,6 @@ else:
                             🔵 {dia_semana} — {dt1}
                         </h3>
                     """
-
 
                     for item in datas_dict[dt1]:
 
@@ -698,21 +648,14 @@ else:
                         </div>
                         """
 
-
                     html1 += """
                     </div>
                     """
-
 
                     st.markdown(
                         html1,
                         unsafe_allow_html=True
                     )
-
-
-                # ============================================
-                # SEGUNDA REUNIÃO
-                # ============================================
 
                 if i + 1 < len(lista_datas):
 
@@ -745,7 +688,6 @@ else:
 
                             dia_semana = ""
 
-
                         html2 = f"""
                         <div style="
                             background:#ffffff;
@@ -766,7 +708,6 @@ else:
                                 🟣 {dia_semana} — {dt2}
                             </h3>
                         """
-
 
                         for item in datas_dict[dt2]:
 
@@ -793,21 +734,15 @@ else:
                             </div>
                             """
 
-
                         html2 += """
                         </div>
                         """
-
 
                         st.markdown(
                             html2,
                             unsafe_allow_html=True
                         )
 
-
-    # ========================================================
-    # ABA 2 — PROCURAR POR IRMÃO
-    # ========================================================
 
     with tab2:
 
@@ -823,9 +758,6 @@ else:
         if busca:
 
             encontrado = False
-
-            # Usar lista_datas para manter
-            # a ordem cronológica também na pesquisa
 
             for dt in lista_datas:
 
@@ -860,10 +792,6 @@ else:
                     "para este nome."
                 )
 
-
-    # ========================================================
-    # ABA 3 — PDF
-    # ========================================================
 
     with tab3:
 
@@ -902,10 +830,6 @@ else:
             )
 
 
-    # ========================================================
-    # ABA 4 — ADMINISTRAR ESCALAS
-    # ========================================================
-
     if tab4 is not None:
 
         with tab4:
@@ -920,30 +844,15 @@ else:
 
                 c_mes, c_dia = st.columns(2)
 
-
-                # --------------------------------------------
-                # MÊS
-                # --------------------------------------------
-
                 mes_input = c_mes.text_input(
                     "Mês (Ano-Mês):",
                     value=mes_selecionado
                 )
 
-
-                # --------------------------------------------
-                # DATA
-                # --------------------------------------------
-
                 data_texto_input = c_dia.text_input(
                     "Data Formatada:",
                     placeholder="Ex.: 05/10/2026"
                 )
-
-
-                # --------------------------------------------
-                # DIA DA SEMANA
-                # --------------------------------------------
 
                 dia_semana_input = st.selectbox(
                     "Dia da Semana:",
@@ -952,11 +861,6 @@ else:
                         "sab"
                     ]
                 )
-
-
-                # --------------------------------------------
-                # FUNÇÃO
-                # --------------------------------------------
 
                 funcao_input = st.selectbox(
                     "Função:",
@@ -970,21 +874,14 @@ else:
                     ]
                 )
 
-
-                # --------------------------------------------
-                # IRMÃO
-                # --------------------------------------------
-
                 irmao_input = st.text_input(
                     "Nome do Irmão:"
                 )
-
 
                 salvar = st.form_submit_button(
                     "💾 Salvar Designação",
                     use_container_width=True
                 )
-
 
             if salvar:
 
@@ -1002,19 +899,10 @@ else:
 
                     try:
 
-                        # ------------------------------------
-                        # VALIDAR DATA
-                        # ------------------------------------
-
                         datetime.strptime(
                             data_texto_input.strip(),
                             "%d/%m/%Y"
                         )
-
-
-                        # ------------------------------------
-                        # VERIFICAR DUPLICAÇÃO
-                        # ------------------------------------
 
                         existente = (
                             supabase
@@ -1038,7 +926,6 @@ else:
                             )
                             .execute()
                         )
-
 
                         if existente.data:
 
@@ -1069,7 +956,6 @@ else:
 
                             st.rerun()
 
-
                     except ValueError:
 
                         st.error(
@@ -1082,11 +968,6 @@ else:
                         st.error(
                             f"Erro ao cadastrar designação: {err}"
                         )
-
-
-            # =================================================
-            # LISTAR DESIGNACÕES DO MÊS
-            # =================================================
 
             st.divider()
 
@@ -1134,10 +1015,6 @@ else:
                 )
 
 
-    # ========================================================
-    # ADMINISTRAÇÃO DE USUÁRIOS
-    # ========================================================
-
     if st.session_state["user_role"] == "admin":
 
         st.sidebar.divider()
@@ -1157,13 +1034,11 @@ else:
 
             lista_usuarios = usuarios.data or []
 
-
             pendentes = [
                 u
                 for u in lista_usuarios
                 if u.get("status") == "pendente"
             ]
-
 
             if pendentes:
 
@@ -1195,9 +1070,7 @@ else:
                             )
                         )
 
-
                         col_a, col_b = st.columns(2)
-
 
                         with col_a:
 
@@ -1226,7 +1099,6 @@ else:
                                 )
 
                                 st.rerun()
-
 
                         with col_b:
 
