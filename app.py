@@ -20,8 +20,7 @@ st.set_page_config(
 
 SUPABASE_URL = "https://jwstginzuimrbvvavrlv.supabase.co"
 
-# IMPORTANTE:
-# Coloque aqui a sua chave ANON do Supabase.
+# COLOQUE AQUI SUA CHAVE ANON DO SUPABASE
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp3c3RnaW56dWltcmJ2dmF2cmx2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA2MjIwNDgsImV4cCI6MjEwNjE5ODA0OH0.XNLaxpWCElIntlXWS6_moHHCnzkTXUXBhcFoRx6K93M"
 
 
@@ -60,7 +59,7 @@ if "user_role" not in st.session_state:
 
 
 # ============================================================
-# TELA DE LOGIN
+# TELA DE LOGIN / CADASTRO
 # ============================================================
 
 if not st.session_state["logged_in"]:
@@ -215,7 +214,12 @@ if not st.session_state["logged_in"]:
                 use_container_width=True
             ):
 
-                if not nome_cad or not email_cad or not senha_cad or not tel_cad:
+                if (
+                    not nome_cad
+                    or not email_cad
+                    or not senha_cad
+                    or not tel_cad
+                ):
 
                     st.warning(
                         "Preencha todos os campos."
@@ -378,15 +382,7 @@ else:
             .execute()
         )
 
-        dados_escala = (
-            res_escala.data
-            or []
-        )
-
-        st.sidebar.success(
-            f"✅ {len(dados_escala)} "
-            f"registros encontrados"
-        )
+        dados_escala = res_escala.data or []
 
     except Exception as err:
 
@@ -427,7 +423,7 @@ else:
 
 
     # ========================================================
-    # ABAS
+    # CRIAR ABAS
     # ========================================================
 
     if st.session_state["user_role"] == "admin":
@@ -455,7 +451,7 @@ else:
 
 
     # ========================================================
-    # ABA 1 — ESCALA
+    # ABA 1 — ESCALA DO MÊS
     # ========================================================
 
     with tab1:
@@ -486,9 +482,7 @@ else:
 
                 c1, c2 = st.columns(2)
 
-                # --------------------------------------------
                 # PRIMEIRA DATA
-                # --------------------------------------------
 
                 dt1 = lista_datas[i]
 
@@ -506,9 +500,7 @@ else:
                         )
 
 
-                # --------------------------------------------
                 # SEGUNDA DATA
-                # --------------------------------------------
 
                 if i + 1 < len(lista_datas):
 
@@ -531,7 +523,7 @@ else:
 
 
     # ========================================================
-    # ABA 2 — PROCURAR IRMÃO
+    # ABA 2 — PROCURAR POR IRMÃO
     # ========================================================
 
     with tab2:
@@ -615,7 +607,7 @@ else:
 
 
     # ========================================================
-    # ABA 4 — ADMINISTRAR ESCALAS
+    # ABA 4 — GERIR ESCALAS
     # ========================================================
 
     if tab4 is not None:
